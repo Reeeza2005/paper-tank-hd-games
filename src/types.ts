@@ -5,6 +5,7 @@ export type AIDifficulty = 'easy' | 'medium' | 'hard';
 
 export type TerrainType = 'plain' | 'river';
 export type FoldLineMode = 'center' | 'slight_right' | 'slight_left';
+export type ThemeMode = 'night' | 'day';
 
 export type UnitType = 'soldier' | 'tank' | 'plane' | 'boat' | 'bunker' | 'factory';
 
@@ -15,6 +16,7 @@ export interface UnitDefinition {
   baseHitRadius: number;
   baseInkRadius: number;
   baseHp: number;
+  baseDamage: number;
   bounty: number; // floor(cost / 3)
   icon: string;
   description: string;
@@ -31,6 +33,7 @@ export const UNIT_SPECS: Record<UnitType, UnitDefinition> = {
     baseHitRadius: 13,
     baseInkRadius: 6,
     baseHp: 1,
+    baseDamage: 1,
     bounty: 33,
     icon: '🪖',
     description: 'پیاده‌نظام چابک با تفنگ ضدهوایی؛ قابلیت شلیک به تمام اهداف زمینی، دریایی و هوایی.',
@@ -43,6 +46,7 @@ export const UNIT_SPECS: Record<UnitType, UnitDefinition> = {
     baseHitRadius: 21,
     baseInkRadius: 9,
     baseHp: 2,
+    baseDamage: 1,
     bounty: 83,
     icon: '🛡️',
     description: 'توپخانه زرهی سنگین؛ شلیک به تمام اهداف زمینی، دریایی، سنگر و کارخانه (ممنوع به هواپیما).',
@@ -55,6 +59,7 @@ export const UNIT_SPECS: Record<UnitType, UnitDefinition> = {
     baseHitRadius: 28,
     baseInkRadius: 15,
     baseHp: 2,
+    baseDamage: 1,
     bounty: 133,
     icon: '✈️',
     description: 'بمباران مهلک تانک، قایق، سنگر، کارخانه و هواپیما (پیاده‌نظام از بمباران مصون است).',
@@ -67,6 +72,7 @@ export const UNIT_SPECS: Record<UnitType, UnitDefinition> = {
     baseHitRadius: 23,
     baseInkRadius: 10,
     baseHp: 2,
+    baseDamage: 1,
     bounty: 66,
     icon: '🛥️',
     description: 'استقرار در پهنه آبی رودخانه؛ شلیک به قایق، تانک، سرباز و استحکامات ساحلی.',
@@ -79,6 +85,7 @@ export const UNIT_SPECS: Record<UnitType, UnitDefinition> = {
     baseHitRadius: 22,
     baseInkRadius: 0,
     baseHp: 4,
+    baseDamage: 0,
     bounty: 26,
     icon: '🏰',
     description: 'استحکامات بتنی بدون شلیک با هاله محافظتی؛ دفع گلوله و جذب آسیب نیروهای خودی هم‌جوار.',
@@ -92,6 +99,7 @@ export const UNIT_SPECS: Record<UnitType, UnitDefinition> = {
     baseHitRadius: 25,
     baseInkRadius: 0,
     baseHp: 3,
+    baseDamage: 0,
     bounty: 116,
     icon: '🏭',
     description: 'مجموعه صنعتی غیرمسلح؛ تولید ۵۰+ سکه درآمد پایدار در آغاز هر نوبت شما.',
@@ -143,6 +151,7 @@ export function validateCombatTarget(
 export interface UnitUpgrades {
   extraHp: number; // Level 0-2 (+1 HP per level)
   inkRadiusBoost: number; // Level 0-2 (+2.5px radius per level)
+  damageBoost: number; // Level 0-2 (+1 Damage per level)
   windResistance: boolean; // Immune to 50% wind drift
 }
 
@@ -183,6 +192,7 @@ export interface Shot {
   firingUnitType: UnitType;
   firingUnitId: string;
   inkRadius: number;
+  damageDealt?: number;
   isHit: boolean;
   hitUnitId?: string;
   hitUnitType?: UnitType;
@@ -198,6 +208,7 @@ export interface KillcamData {
   attackerType: UnitType;
   victimPlayer: PlayerId;
   victimType: UnitType;
+  damageDealt?: number;
   bounty: number;
   timestamp: number;
 }
@@ -205,11 +216,14 @@ export interface KillcamData {
 export interface PeerMessage {
   type:
     | 'INIT_ACK'
+    | 'READY_STATE'
     | 'DEPLOY_DONE'
     | 'REINFORCE_UNIT'
     | 'SHOOT'
     | 'UPGRADE_UNIT'
+    | 'TURN_CHANGE'
     | 'REMATCH'
-    | 'SETTINGS_SYNC';
+    | 'SETTINGS_SYNC'
+    | 'NAME_UPDATE';
   payload?: any;
 }

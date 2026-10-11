@@ -1,4 +1,4 @@
-import { Unit, Shot, PlayerId, TerrainType, FoldLineMode, UNIT_SPECS } from './types';
+import { Unit, Shot, PlayerId, TerrainType, FoldLineMode, ThemeMode, UNIT_SPECS } from './types';
 
 export const P1_COLOR = '#00d2ff'; // Cyber Cyan / Tactical Blue
 export const P2_COLOR = '#ff3b57'; // Neon Crimson / Tactical Red
@@ -82,93 +82,96 @@ export function getBunkerProtectingUnit(
   return null;
 }
 
-// Render Dark Tactical HD Map Background
+// Render Dark / Light Tactical HD Map Background (Clean Minimal Battlefield)
 export function drawTacticalBattlefield(
   ctx: CanvasRenderingContext2D,
   width: number,
   height: number,
   terrain: TerrainType,
   foldMode: FoldLineMode,
-  timestamp: number
+  timestamp: number,
+  theme: ThemeMode = 'night'
 ) {
-  // 1. Dark High-Definition Background
-  ctx.fillStyle = '#090d16';
-  ctx.fillRect(0, 0, width, height);
+  const isDay = theme === 'day';
 
-  // Tactical Blueprint Matrix Grid
-  ctx.save();
-  const gridSize = 40;
-  ctx.strokeStyle = 'rgba(30, 41, 59, 0.45)';
-  ctx.lineWidth = 1;
+  // 1. High-Definition Clean Background (No Grid lines, No Aiming aids)
+  if (isDay) {
+    const bgGrad = ctx.createRadialGradient(
+      width * 0.5,
+      height * 0.5,
+      Math.min(width, height) * 0.2,
+      width * 0.5,
+      height * 0.5,
+      Math.max(width, height) * 0.75
+    );
+    bgGrad.addColorStop(0, '#f8fafc');
+    bgGrad.addColorStop(1, '#e2e8f0');
+    ctx.fillStyle = bgGrad;
+    ctx.fillRect(0, 0, width, height);
 
-  for (let x = 0; x < width; x += gridSize) {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(15, 23, 42, 0.25)';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(12, 12, width - 24, height - 24);
+
+    const cornerSize = 14;
+    ctx.strokeStyle = 'rgba(15, 23, 42, 0.75)';
+    ctx.lineWidth = 2;
+
     ctx.beginPath();
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, height);
-    ctx.stroke();
+    ctx.moveTo(12, 12 + cornerSize); ctx.lineTo(12, 12); ctx.lineTo(12 + cornerSize, 12); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(width - 12 - cornerSize, 12); ctx.lineTo(width - 12, 12); ctx.lineTo(width - 12, 12 + cornerSize); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(12, height - 12 - cornerSize); ctx.lineTo(12, height - 12); ctx.lineTo(12 + cornerSize, height - 12); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(width - 12 - cornerSize, height - 12); ctx.lineTo(width - 12, height - 12); ctx.lineTo(width - 12, height - 12 - cornerSize); ctx.stroke();
+    ctx.restore();
+  } else {
+    const bgGrad = ctx.createRadialGradient(
+      width * 0.5,
+      height * 0.5,
+      Math.min(width, height) * 0.2,
+      width * 0.5,
+      height * 0.5,
+      Math.max(width, height) * 0.75
+    );
+    bgGrad.addColorStop(0, '#0c1322');
+    bgGrad.addColorStop(1, '#060a12');
+    ctx.fillStyle = bgGrad;
+    ctx.fillRect(0, 0, width, height);
+
+    ctx.save();
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.2)';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(12, 12, width - 24, height - 24);
+
+    const cornerSize = 14;
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.6)';
+    ctx.lineWidth = 2;
+
+    ctx.beginPath();
+    ctx.moveTo(12, 12 + cornerSize); ctx.lineTo(12, 12); ctx.lineTo(12 + cornerSize, 12); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(width - 12 - cornerSize, 12); ctx.lineTo(width - 12, 12); ctx.lineTo(width - 12, 12 + cornerSize); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(12, height - 12 - cornerSize); ctx.lineTo(12, height - 12); ctx.lineTo(12 + cornerSize, height - 12); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(width - 12 - cornerSize, height - 12); ctx.lineTo(width - 12, height - 12); ctx.lineTo(width - 12, height - 12 - cornerSize); ctx.stroke();
+    ctx.restore();
   }
-  for (let y = 0; y < height; y += gridSize) {
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(width, y);
-    ctx.stroke();
-  }
-
-  // Subtle tactical topographic contour rings
-  ctx.strokeStyle = 'rgba(51, 65, 85, 0.25)';
-  ctx.lineWidth = 1.2;
-  [
-    { cx: width * 0.25, cy: height * 0.35, r: 80 },
-    { cx: width * 0.75, cy: height * 0.35, r: 80 },
-    { cx: width * 0.5, cy: height * 0.5, r: 120 },
-  ].forEach((ring) => {
-    ctx.beginPath();
-    ctx.arc(ring.cx, ring.cy, ring.r, 0, Math.PI * 2);
-    ctx.stroke();
-  });
-
-  // Perimeter High-Tech Boundary
-  ctx.strokeStyle = 'rgba(56, 189, 248, 0.25)';
-  ctx.lineWidth = 2;
-  ctx.strokeRect(12, 12, width - 24, height - 24);
-
-  // Corner HUD Brackets
-  const cornerSize = 16;
-  ctx.strokeStyle = '#38bdf8';
-  ctx.lineWidth = 2.5;
-
-  // Top-Left
-  ctx.beginPath();
-  ctx.moveTo(12, 12 + cornerSize);
-  ctx.lineTo(12, 12);
-  ctx.lineTo(12 + cornerSize, 12);
-  ctx.stroke();
-  // Top-Right
-  ctx.beginPath();
-  ctx.moveTo(width - 12 - cornerSize, 12);
-  ctx.lineTo(width - 12, 12);
-  ctx.lineTo(width - 12, 12 + cornerSize);
-  ctx.stroke();
-  // Bottom-Left
-  ctx.beginPath();
-  ctx.moveTo(12, height - 12 - cornerSize);
-  ctx.lineTo(12, height - 12);
-  ctx.lineTo(12 + cornerSize, height - 12);
-  ctx.stroke();
-  // Bottom-Right
-  ctx.beginPath();
-  ctx.moveTo(width - 12 - cornerSize, height - 12);
-  ctx.lineTo(width - 12, height - 12);
-  ctx.lineTo(width - 12, height - 12 - cornerSize);
-  ctx.stroke();
-  ctx.restore();
 
   // 2. Terrain: River & Coastal Waters
   if (terrain === 'river') {
     ctx.save();
     const waterGrad = ctx.createLinearGradient(0, height * 0.7, 0, height);
-    waterGrad.addColorStop(0, 'rgba(14, 116, 144, 0.45)');
-    waterGrad.addColorStop(1, 'rgba(6, 78, 59, 0.65)');
+    if (isDay) {
+      waterGrad.addColorStop(0, 'rgba(14, 165, 233, 0.35)');
+      waterGrad.addColorStop(1, 'rgba(3, 105, 161, 0.65)');
+    } else {
+      waterGrad.addColorStop(0, 'rgba(14, 116, 144, 0.45)');
+      waterGrad.addColorStop(1, 'rgba(6, 78, 59, 0.65)');
+    }
 
     const wavePhase = timestamp * 0.003;
     ctx.beginPath();
@@ -187,32 +190,19 @@ export function drawTacticalBattlefield(
     ctx.fillStyle = waterGrad;
     ctx.fill();
 
-    // Fluorescent Shoreline Wave Edge
-    ctx.strokeStyle = '#06b6d4';
+    // Shoreline Wave Edge
+    ctx.strokeStyle = isDay ? '#0284c7' : '#06b6d4';
     ctx.lineWidth = 2.4;
-    ctx.shadowColor = '#06b6d4';
+    ctx.shadowColor = isDay ? '#0284c7' : '#06b6d4';
     ctx.shadowBlur = 8;
     ctx.stroke();
     ctx.shadowBlur = 0;
-
-    // Sub-surface flow markers
-    ctx.strokeStyle = 'rgba(6, 182, 212, 0.25)';
-    ctx.lineWidth = 1.2;
-    ctx.setLineDash([8, 12]);
-    for (let r = 1; r <= 3; r++) {
-      const ry = height * (0.74 + r * 0.07);
-      ctx.beginPath();
-      ctx.moveTo(0, ry);
-      ctx.lineTo(width, ry);
-      ctx.stroke();
-    }
-    ctx.setLineDash([]);
     ctx.restore();
   }
 
   // 3. Dynamic Laser Fold Line
   ctx.save();
-  const { p0x, p0y, nx, ny, angle } = getFoldLineParams(width, height, foldMode);
+  const { p0x, p0y, nx, ny } = getFoldLineParams(width, height, foldMode);
 
   // Line points intersecting canvas top and bottom
   const topY = 0;
@@ -221,18 +211,18 @@ export function drawTacticalBattlefield(
   const botX = p0x - (botY - p0y) * (ny / nx);
 
   // Glowing laser seam
-  ctx.strokeStyle = 'rgba(168, 85, 247, 0.35)';
+  ctx.strokeStyle = isDay ? 'rgba(147, 51, 234, 0.25)' : 'rgba(168, 85, 247, 0.35)';
   ctx.lineWidth = 12;
   ctx.beginPath();
   ctx.moveTo(topX, topY);
   ctx.lineTo(botX, botY);
   ctx.stroke();
 
-  ctx.strokeStyle = '#c084fc';
+  ctx.strokeStyle = isDay ? '#9333ea' : '#c084fc';
   ctx.lineWidth = 2;
   ctx.setLineDash([6, 6]);
-  ctx.shadowColor = '#c084fc';
-  ctx.shadowBlur = 10;
+  ctx.shadowColor = isDay ? '#9333ea' : '#c084fc';
+  ctx.shadowBlur = isDay ? 6 : 10;
   ctx.beginPath();
   ctx.moveTo(topX, topY);
   ctx.lineTo(botX, botY);
@@ -244,7 +234,7 @@ export function drawTacticalBattlefield(
   const midX = (topX + botX) / 2;
   const midY = height * 0.07;
   ctx.font = 'bold 11px Vazirmatn, sans-serif';
-  ctx.fillStyle = '#e9d5ff';
+  ctx.fillStyle = isDay ? '#6b21a8' : '#e9d5ff';
   ctx.textAlign = 'center';
   const modeLabel =
     foldMode === 'slight_right'

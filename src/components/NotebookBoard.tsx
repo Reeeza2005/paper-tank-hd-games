@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useCallback } from 'react';
+import React, { useRef, useEffect, useCallback, useState } from 'react';
 import {
   Unit,
   Shot,
@@ -8,6 +8,7 @@ import {
   UnitType,
   Wind,
   FoldLineConfig,
+  ThemeMode,
   UNIT_SPECS,
   validateCombatTarget,
   KillcamData,
@@ -20,8 +21,6 @@ import {
   reflectAcrossFoldLine,
   isPointInWater,
   getBunkerProtectingUnit,
-  P1_COLOR,
-  P2_COLOR,
 } from '../canvasUtils';
 import { sounds } from '../audio';
 
@@ -30,14 +29,19 @@ interface NotebookBoardProps {
   currentPlayer: PlayerId;
   myPlayerId: PlayerId;
   terrain: TerrainType;
+  theme: ThemeMode;
   units: Unit[];
   shots: Shot[];
   unitScale: number;
   selectedUnitToBuy: UnitType | null;
   selectedFiringUnitId: string | null;
+  selectedUnitToModifyId: string | null;
   wind: Wind;
   foldConfig: FoldLineConfig;
   onPlaceUnit: (xRatio: number, yRatio: number, unitType: UnitType) => void;
+  onMoveUnit: (unitId: string, newXRatio: number, newYRatio: number) => void;
+  onDeleteUnit: (unitId: string) => void;
+  onSelectUnitToModify: (unit: Unit | null) => void;
   onShoot: (shotData: {
     sourceXR: number;
     sourceYR: number;
@@ -49,6 +53,7 @@ interface NotebookBoardProps {
     absorbedByBunkerId?: string;
     unitDestroyed?: boolean;
     bountyEarned: number;
+    damageDealt?: number;
     killcam?: KillcamData;
   }) => void;
   onSelectUnitForUpgrade: (unit: Unit) => void;
@@ -64,14 +69,19 @@ export const NotebookBoard: React.FC<NotebookBoardProps> = ({
   currentPlayer,
   myPlayerId,
   terrain,
+  theme,
   units,
   shots,
   unitScale,
   selectedUnitToBuy,
   selectedFiringUnitId,
+  selectedUnitToModifyId,
   wind,
   foldConfig,
   onPlaceUnit,
+  onMoveUnit,
+  onDeleteUnit,
+  onSelectUnitToModify,
   onShoot,
   onSelectUnitForUpgrade,
   onShowToast,
@@ -80,6 +90,15 @@ export const NotebookBoard: React.FC<NotebookBoardProps> = ({
   targetDimensions,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+  // Drag state
+  const [draggingUnitId, setDraggingUnitId] = useState<string | null>(null);
+  const dragStartPosRef = useRef<{ x: number; y: number } | null>(null);
+  const hasDraggedRef = useRef<boolean>(false);
+  const justFinishedDragRef = useRef<boolean>(false);
+
+  // Reliable double-tap tracker for touch and mouse
+  const lastTapInfoRef = useRef<{ time: number; unitId: string } | null>(null);
 
   // 60 FPS Render Loop
   useEffect(() => {
@@ -94,13 +113,34 @@ export const NotebookBoard: React.FC<NotebookBoardProps> = ({
       const w = canvas.width;
       const h = canvas.height;
 
-      // 1. Draw Battlefield Map
-      drawTacticalBattlefield(ctx, w, h, terrain, foldConfig.currentMode, timestamp);
+      // 1. Draw Battlefield Map (Clean tactical without grid)
+      drawTacticalBattlefield(ctx, w, h, terrain, foldConfig.currentMode, timestamp, theme);
 
       // 2. Draw Units
       units.forEach((u) => {
         const isSelected = u.id === selectedFiringUnitId;
         drawTacticalUnit(ctx, u, w, h, unitScale, isSelected, timestamp);
+
+        // Highlight unit selected for repositioning or deletion in deployment
+        if (phase === 'deployment' && u.id === selectedUnitToModifyId) {
+          ctx.save();
+          const ux = u.xRatio * w;
+          const uy = u.yRatio * h;
+          const hitR = UNIT_SPECS[u.type].baseHitRadius * unitScale + 9;
+          ctx.strokeStyle = '#f59e0b'; // Amber pulse ring
+          ctx.lineWidth = 2.5;
+          ctx.setLineDash([5, 4]);
+          ctx.beginPath();
+          ctx.arc(ux, uy, hitR + Math.sin(timestamp * 0.008) * 3, 0, Math.PI * 2);
+          ctx.stroke();
+
+          // Small tag above unit
+          ctx.font = 'bold 10px Tahoma, sans-serif';
+          ctx.fillStyle = '#f59e0b';
+          ctx.textAlign = 'center';
+          ctx.fillText('انتخاب‌شده ✥', ux, uy - hitR - 6);
+          ctx.restore();
+        }
       });
 
       // 3. Draw Shots
@@ -113,12 +153,136 @@ export const NotebookBoard: React.FC<NotebookBoardProps> = ({
 
     animId = requestAnimationFrame(render);
     return () => cancelAnimationFrame(animId);
-  }, [units, shots, terrain, foldConfig, unitScale, selectedFiringUnitId]);
+  }, [
+    units,
+    shots,
+    terrain,
+    theme,
+    foldConfig,
+    unitScale,
+    selectedFiringUnitId,
+    selectedUnitToModifyId,
+    phase,
+  ]);
+
+  // Pointer Down for Drag & Relocate in Deployment
+  const handlePointerDown = (clientX: number, clientY: number) => {
+    if (phase !== 'deployment') return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const clickX = clientX - rect.left;
+    const clickY = clientY - rect.top;
+
+    const touchedFriendlyUnit = units.find((u) => {
+      if (u.player !== myPlayerId || u.isDestroyed) return false;
+      const ux = u.xRatio * canvas.width;
+      const uy = u.yRatio * canvas.height;
+      const hitR = UNIT_SPECS[u.type].baseHitRadius * unitScale + 12;
+      return Math.hypot(ux - clickX, uy - clickY) <= hitR;
+    });
+
+    if (touchedFriendlyUnit) {
+      setDraggingUnitId(touchedFriendlyUnit.id);
+      dragStartPosRef.current = { x: clickX, y: clickY };
+      hasDraggedRef.current = false;
+    }
+  };
+
+  // Pointer Move for Dragging
+  const handlePointerMove = (clientX: number, clientY: number) => {
+    if (!draggingUnitId || phase !== 'deployment') return;
+    const canvas = canvasRef.current;
+    if (!canvas || !dragStartPosRef.current) return;
+    const rect = canvas.getBoundingClientRect();
+    const clickX = clientX - rect.left;
+    const clickY = clientY - rect.top;
+
+    if (
+      Math.hypot(clickX - dragStartPosRef.current.x, clickY - dragStartPosRef.current.y) > 14
+    ) {
+      hasDraggedRef.current = true;
+    }
+  };
+
+  // Pointer Up to Finalize Drag Move
+  const handlePointerUp = (clientX: number, clientY: number) => {
+    if (!draggingUnitId || phase !== 'deployment') return;
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      setDraggingUnitId(null);
+      return;
+    }
+    const rect = canvas.getBoundingClientRect();
+    const clickX = clientX - rect.left;
+    const clickY = clientY - rect.top;
+    const xr = clickX / canvas.width;
+    const yr = clickY / canvas.height;
+
+    const unit = units.find((u) => u.id === draggingUnitId);
+    if (hasDraggedRef.current && unit) {
+      justFinishedDragRef.current = true;
+      setTimeout(() => {
+        justFinishedDragRef.current = false;
+      }, 100);
+
+      // Validate drag target territory
+      const territory = getPlayerSideForPoint(
+        clickX,
+        clickY,
+        canvas.width,
+        canvas.height,
+        foldConfig.currentMode
+      );
+      if (territory !== myPlayerId) {
+        onShowToast('نمی‌توانید واحد را خارج از نیمه قلمرو خود قرار دهید!', '⚠️');
+      } else if (unit.type === 'boat' && (terrain !== 'river' || !isPointInWater(xr, yr))) {
+        onShowToast('قایق جنگی تنها در پهنه آبی رودخانه مستقر می‌شود!', '⚠️');
+      } else if (terrain === 'river' && isPointInWater(xr, yr) && unit.type !== 'plane' && unit.type !== 'boat') {
+        onShowToast('ادوات زمینی نمی‌توانند درون آب قرار گیرند!', '⚠️');
+      } else {
+        onMoveUnit(unit.id, xr, yr);
+        onShowToast(`واحد ${UNIT_SPECS[unit.type].name} با کشیدن و رها کردن جابجا شد ✥`, '✨');
+        sounds.playTankPlace();
+      }
+    }
+
+    setDraggingUnitId(null);
+    dragStartPosRef.current = null;
+    hasDraggedRef.current = false;
+  };
+
+  // Direct Mouse Double-Click Event on Canvas for immediate unit deletion
+  const handleCanvasDoubleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (phase !== 'deployment') return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const clickY = e.clientY - rect.top;
+
+    const touchedFriendlyUnit = units.find((u) => {
+      if (u.player !== myPlayerId || u.isDestroyed) return false;
+      const ux = u.xRatio * canvas.width;
+      const uy = u.yRatio * canvas.height;
+      const hitR = UNIT_SPECS[u.type].baseHitRadius * unitScale + 16;
+      return Math.hypot(ux - clickX, uy - clickY) <= hitR;
+    });
+
+    if (touchedFriendlyUnit) {
+      lastTapInfoRef.current = null;
+      onDeleteUnit(touchedFriendlyUnit.id);
+      onSelectUnitToModify(null);
+      sounds.playCoinEarn();
+      onShowToast(`واحد ${UNIT_SPECS[touchedFriendlyUnit.type].name} با دبل‌کلیک حذف شد و ${UNIT_SPECS[touchedFriendlyUnit.type].cost} 🪙 بازگشت 🗑️`, '💰');
+    }
+  };
 
   // Click & Touch Interaction Handler
   const handleCanvasClick = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
       if (isFoldAnimating || phase === 'gameover') return;
+      if (justFinishedDragRef.current) return; // Drag already handled
       const canvas = canvasRef.current;
       if (!canvas) return;
 
@@ -140,22 +304,150 @@ export const NotebookBoard: React.FC<NotebookBoardProps> = ({
       const xr = clickX / canvas.width;
       const yr = clickY / canvas.height;
 
-      // 1. Check Upgrade Click on Friendly Unit
-      const clickedFriendlyUnit = units.find((u) => {
-        if (u.player !== myPlayerId || u.isDestroyed) return false;
-        const ux = u.xRatio * canvas.width;
-        const uy = u.yRatio * canvas.height;
-        const hitR = UNIT_SPECS[u.type].baseHitRadius * unitScale + 12;
-        return Math.hypot(ux - clickX, uy - clickY) <= hitR;
-      });
+      // ==========================================
+      // PHASE: DEPLOYMENT
+      // ==========================================
+      if (phase === 'deployment') {
+        // 1. Check if user clicked on an existing friendly unit
+        const touchedFriendlyUnit = units.find((u) => {
+          if (u.player !== myPlayerId || u.isDestroyed) return false;
+          const ux = u.xRatio * canvas.width;
+          const uy = u.yRatio * canvas.height;
+          const hitR = UNIT_SPECS[u.type].baseHitRadius * unitScale + 14;
+          return Math.hypot(ux - clickX, uy - clickY) <= hitR;
+        });
 
-      if (clickedFriendlyUnit) {
-        onSelectUnitForUpgrade(clickedFriendlyUnit);
+        if (touchedFriendlyUnit) {
+          const now = Date.now();
+          // Check for rapid double tap / double click
+          if (
+            lastTapInfoRef.current &&
+            lastTapInfoRef.current.unitId === touchedFriendlyUnit.id &&
+            now - lastTapInfoRef.current.time < 500
+          ) {
+            // DOUBLE CLICK DELETE ACTION!
+            lastTapInfoRef.current = null;
+            onDeleteUnit(touchedFriendlyUnit.id);
+            onSelectUnitToModify(null);
+            sounds.playCoinEarn();
+            onShowToast(
+              `واحد ${UNIT_SPECS[touchedFriendlyUnit.type].name} با دبل‌کلیک حذف شد و ${UNIT_SPECS[touchedFriendlyUnit.type].cost} 🪙 به بودجه بازگشت 🗑️`,
+              '💰'
+            );
+            return;
+          }
+
+          // Single Click: Select unit for repositioning / deletion
+          lastTapInfoRef.current = { time: now, unitId: touchedFriendlyUnit.id };
+          if (selectedUnitToModifyId === touchedFriendlyUnit.id) {
+            onSelectUnitToModify(null);
+          } else {
+            onSelectUnitToModify(touchedFriendlyUnit);
+            onShowToast(
+              `واحد ${UNIT_SPECS[touchedFriendlyUnit.type].name} انتخاب شد (دبل‌کلیک برای حذف، یا کلیک روی نقطه جدید برای جابجایی).`,
+              '✥'
+            );
+          }
+          return;
+        }
+
+        // Reset double tap if clicked elsewhere
+        lastTapInfoRef.current = null;
+
+        // 2. Clicked on EMPTY ground while a unit was already selected -> REPOSITION TO NEW POINT
+        if (selectedUnitToModifyId) {
+          const modifyingUnit = units.find((u) => u.id === selectedUnitToModifyId);
+          if (modifyingUnit) {
+            const territory = getPlayerSideForPoint(
+              clickX,
+              clickY,
+              canvas.width,
+              canvas.height,
+              foldConfig.currentMode
+            );
+
+            if (territory !== myPlayerId) {
+              onShowToast('تنها در نیمه قلمرو خودتان مجاز به انتقال نیرو هستید!', '⚠️');
+              return;
+            }
+
+            if (modifyingUnit.type === 'boat' && (terrain !== 'river' || !isPointInWater(xr, yr))) {
+              onShowToast('قایق جنگی تنها در پهنه آبی رودخانه مستقر می‌شود!', '⚠️');
+              return;
+            } else if (
+              terrain === 'river' &&
+              isPointInWater(xr, yr) &&
+              modifyingUnit.type !== 'plane' &&
+              modifyingUnit.type !== 'boat'
+            ) {
+              onShowToast('نیروهای زمینی، سنگر و کارخانه نمی‌توانند درون آب قرار گیرند!', '⚠️');
+              return;
+            }
+
+            onMoveUnit(modifyingUnit.id, xr, yr);
+            onSelectUnitToModify(null);
+            onShowToast(`مکان ${UNIT_SPECS[modifyingUnit.type].name} تغییر یافت ✥`, '✨');
+            sounds.playTankPlace();
+            return;
+          }
+        }
+
+        // 3. Clicked on EMPTY ground with Store Unit Selected -> PLACE NEW UNIT
+        if (selectedUnitToBuy) {
+          const territory = getPlayerSideForPoint(
+            clickX,
+            clickY,
+            canvas.width,
+            canvas.height,
+            foldConfig.currentMode
+          );
+
+          if (territory !== myPlayerId) {
+            onShowToast('تنها در نیمه قلمرو خودتان مجاز به استقرار هستید!', '⚠️');
+            return;
+          }
+
+          if (selectedUnitToBuy === 'boat') {
+            if (terrain !== 'river' || !isPointInWater(xr, yr)) {
+              onShowToast('قایق جنگی تنها در پهنه آبی رودخانه مستقر می‌شود!', '⚠️');
+              return;
+            }
+          } else if (terrain === 'river' && isPointInWater(xr, yr) && selectedUnitToBuy !== 'plane') {
+            onShowToast('نیروهای زمینی، سنگر و کارخانه نمی‌توانند درون آب مستقر شوند!', '⚠️');
+            return;
+          }
+
+          const directlyOnOtherUnit = units.some((u) => {
+            if (u.isDestroyed) return false;
+            const ux = u.xRatio * canvas.width;
+            const uy = u.yRatio * canvas.height;
+            return Math.hypot(ux - clickX, uy - clickY) < 18;
+          });
+
+          if (directlyOnOtherUnit) {
+            onShowToast('این نقطه اشغال شده است، اندکی آن‌طرف‌تر کلیک کنید!', '⚠️');
+            return;
+          }
+
+          onPlaceUnit(xr, yr, selectedUnitToBuy);
+          return;
+        }
+
+        // Otherwise deselect
+        onSelectUnitToModify(null);
         return;
       }
 
-      // 2. Unit Placement (Deployment OR Mid-Battle Reinforcement)
+      // ==========================================
+      // PHASE: BATTLE
+      // ==========================================
+      // 1. UNIT PLACEMENT PRIORITY (Mid-Battle Reinforcement)
       if (selectedUnitToBuy) {
+        if (currentPlayer !== myPlayerId) {
+          onShowToast('نوبت حریف است، منتظر بمانید!', '⏳');
+          return;
+        }
+
         const territory = getPlayerSideForPoint(
           clickX,
           clickY,
@@ -165,7 +457,7 @@ export const NotebookBoard: React.FC<NotebookBoardProps> = ({
         );
 
         if (territory !== currentPlayer) {
-          onShowToast('تنها در نیمه قلمرو خودتان (سمت خط تا) مجاز به استقرار هستید!', '⚠️');
+          onShowToast('تنها در نیمه قلمرو خودتان مجاز به استقرار نیروی کمکی هستید!', '⚠️');
           return;
         }
 
@@ -179,172 +471,238 @@ export const NotebookBoard: React.FC<NotebookBoardProps> = ({
           return;
         }
 
+        const directlyOnCenter = units.some((u) => {
+          if (u.isDestroyed) return false;
+          const ux = u.xRatio * canvas.width;
+          const uy = u.yRatio * canvas.height;
+          return Math.hypot(ux - clickX, uy - clickY) < 16;
+        });
+
+        if (directlyOnCenter) {
+          onShowToast('این نقطه اشغال شده است، اندکی آن‌طرف‌تر کلیک کنید!', '⚠️');
+          return;
+        }
+
         onPlaceUnit(xr, yr, selectedUnitToBuy);
         return;
       }
 
-      // 3. Firing in Battle Phase
-      if (phase === 'battle') {
-        const territory = getPlayerSideForPoint(
-          clickX,
-          clickY,
-          canvas.width,
-          canvas.height,
-          foldConfig.currentMode
-        );
+      // 2. CHECK UPGRADE CLICK (In Battle Phase when clicking on friendly unit)
+      const clickedFriendlyUnit = units.find((u) => {
+        if (u.player !== myPlayerId || u.isDestroyed) return false;
+        const ux = u.xRatio * canvas.width;
+        const uy = u.yRatio * canvas.height;
+        const hitR = UNIT_SPECS[u.type].baseHitRadius * unitScale + 6;
+        return Math.hypot(ux - clickX, uy - clickY) <= hitR;
+      });
 
-        if (territory !== currentPlayer) {
-          onShowToast('باید در نیمه زمین خودتان نقطه شلیک را علامت بزنید!', '⚠️');
-          return;
-        }
+      if (clickedFriendlyUnit) {
+        onSelectUnitForUpgrade(clickedFriendlyUnit);
+        return;
+      }
 
-        const firingUnit = units.find((u) => u.id === selectedFiringUnitId);
-        if (!firingUnit || firingUnit.isDestroyed) {
-          onShowToast('ابتدا یکی از ادوات زنده را جهت شلیک انتخاب کنید!', '🎯');
-          return;
-        }
+      // 3. FIRING IN BATTLE PHASE
+      if (currentPlayer !== myPlayerId) {
+        onShowToast('نوبت حریف است، منتظر بمانید! (کنترل شلیک قفل است)', '⏳');
+        return;
+      }
 
-        if (!UNIT_SPECS[firingUnit.type].canShoot) {
-          onShowToast('این واحد غیرمسلح است و توانایی شلیک ندارد!', '🚫');
-          return;
-        }
+      const territory = getPlayerSideForPoint(
+        clickX,
+        clickY,
+        canvas.width,
+        canvas.height,
+        foldConfig.currentMode
+      );
 
-        if (firingUnit.cooldownRemaining > 0) {
-          onShowToast('این واحد در نوبت قبل شلیک کرده و در حال خنک‌شدن است (۱ نوبت استراحت)!', '⏳');
-          return;
-        }
+      if (territory !== currentPlayer) {
+        onShowToast('باید در نیمه زمین خودتان نقطه شلیک را علامت بزنید!', '⚠️');
+        return;
+      }
 
-        // Calculate Target Reflection across Fold Line
-        const reflected = reflectAcrossFoldLine(
-          clickX,
-          clickY,
-          canvas.width,
-          canvas.height,
-          foldConfig.currentMode
-        );
+      const firingUnit = units.find((u) => u.id === selectedFiringUnitId);
+      if (!firingUnit || firingUnit.isDestroyed) {
+        onShowToast('ابتدا یکی از ادوات زنده را جهت شلیک انتخاب کنید!', '🎯');
+        return;
+      }
 
-        const windEffX = firingUnit.upgrades.windResistance ? wind.xOffsetPx * 0.5 : wind.xOffsetPx;
-        const windEffY = firingUnit.upgrades.windResistance ? wind.yOffsetPx * 0.5 : wind.yOffsetPx;
+      if (!UNIT_SPECS[firingUnit.type].canShoot) {
+        onShowToast('این واحد غیرمسلح است و توانایی شلیک ندارد!', '🚫');
+        return;
+      }
 
-        const targetPixelX = reflected.rx + (wind.active ? windEffX : 0);
-        const targetPixelY = reflected.ry + (wind.active ? windEffY : 0);
-        const tgtXR = targetPixelX / canvas.width;
-        const tgtYR = targetPixelY / canvas.height;
+      if (firingUnit.cooldownRemaining > 0) {
+        onShowToast('این واحد در نوبت قبل شلیک کرده و در حال خنک‌شدن است (۱ نوبت استراحت)!', '⏳');
+        return;
+      }
 
-        const targetPlayer = currentPlayer === 1 ? 2 : 1;
-        const inkRadius =
-          (UNIT_SPECS[firingUnit.type].baseInkRadius + firingUnit.upgrades.inkRadiusBoost * 2.5) *
-          unitScale;
+      // Calculate Target Reflection across Fold Line
+      const reflected = reflectAcrossFoldLine(
+        clickX,
+        clickY,
+        canvas.width,
+        canvas.height,
+        foldConfig.currentMode
+      );
 
-        // Check if any enemy unit was struck
-        let hitEnemyUnit: Unit | null = null;
-        for (const u of units) {
-          if (u.player === targetPlayer && !u.isDestroyed) {
-            const dist = Math.hypot(
-              u.xRatio * canvas.width - targetPixelX,
-              u.yRatio * canvas.height - targetPixelY
-            );
-            if (dist <= (UNIT_SPECS[u.type].baseHitRadius + UNIT_SPECS[firingUnit.type].baseInkRadius) * unitScale) {
-              hitEnemyUnit = u;
-              break;
-            }
+      const windEffX = firingUnit.upgrades.windResistance ? wind.xOffsetPx * 0.5 : wind.xOffsetPx;
+      const windEffY = firingUnit.upgrades.windResistance ? wind.yOffsetPx * 0.5 : wind.yOffsetPx;
+
+      const finalImpactX = reflected.rx + (wind.active ? windEffX : 0);
+      const finalImpactY = reflected.ry + (wind.active ? windEffY : 0);
+
+      // Ink blast radius calculation
+      const baseInkR = UNIT_SPECS[firingUnit.type].baseInkRadius;
+      const boostR = firingUnit.upgrades?.inkRadiusBoost ? firingUnit.upgrades.inkRadiusBoost * 2.5 : 0;
+      const totalInkRadius = baseInkR + boostR;
+
+      // Check hits on enemy units
+      const enemyPlayer = currentPlayer === 1 ? 2 : 1;
+      let hitEnemyUnit: Unit | null = null;
+
+      for (const u of units) {
+        if (u.player === enemyPlayer && !u.isDestroyed) {
+          const ux = u.xRatio * canvas.width;
+          const uy = u.yRatio * canvas.height;
+          const hitRadius = UNIT_SPECS[u.type].baseHitRadius * unitScale;
+
+          const dist = Math.hypot(ux - finalImpactX, uy - finalImpactY);
+          if (dist <= hitRadius + totalInkRadius) {
+            hitEnemyUnit = u;
+            break;
           }
         }
+      }
 
-        // TARGETING COMBAT MATRIX VALIDATION:
-        if (hitEnemyUnit) {
-          const validation = validateCombatTarget(firingUnit.type, hitEnemyUnit.type);
-          if (!validation.allowed) {
-            sounds.playWarningBeep();
-            onShowToast(validation.reason || 'هدف‌گیری غیرمجاز!', '🚫');
-            return; // Does NOT waste shot or turn!
-          }
+      const isHit = !!hitEnemyUnit;
+      let unitDestroyed = false;
+      let bountyEarned = 0;
+      let killcam: KillcamData | undefined = undefined;
+
+      // Calculate attacker damage
+      const baseDmg = UNIT_SPECS[firingUnit.type].baseDamage;
+      const dmgBonus = firingUnit.upgrades?.damageBoost || 0;
+      const attackerDamage = Math.max(1, baseDmg + dmgBonus);
+
+      let absorbedByBunker: Unit | null = null;
+
+      if (isHit && hitEnemyUnit) {
+        // Validate combat rules matrix
+        const targetCheck = validateCombatTarget(firingUnit.type, hitEnemyUnit.type);
+        if (!targetCheck.allowed) {
+          sounds.playWarningBeep();
+          onShowToast(targetCheck.reason || 'شلیک به این نوع هدف مجاز نیست!', '🚫');
+          onShoot({
+            sourceXR: xr,
+            sourceYR: yr,
+            targetXR: finalImpactX / canvas.width,
+            targetYR: finalImpactY / canvas.height,
+            isHit: false,
+            bountyEarned: 0,
+            damageDealt: 0,
+          });
+          return;
         }
 
-        // Check Bunker Protection Aura on the target unit
-        let absorbedByBunker: Unit | null = null;
-        if (hitEnemyUnit) {
-          absorbedByBunker = getBunkerProtectingUnit(
-            hitEnemyUnit,
-            units,
-            canvas.width,
-            canvas.height,
-            unitScale
-          );
-        }
-
-        let unitDestroyed = false;
-        let bountyEarned = 0;
-        let killcam: KillcamData | undefined = undefined;
+        // Check Bunker Aura Absorption
+        absorbedByBunker = getBunkerProtectingUnit(
+          hitEnemyUnit,
+          units,
+          canvas.width,
+          canvas.height,
+          unitScale
+        );
 
         if (absorbedByBunker) {
-          // Bunker takes damage instead of hitEnemyUnit
-          const newBunkerHp = absorbedByBunker.hp - 1;
-          if (newBunkerHp <= 0) {
-            unitDestroyed = true;
+          // Damage absorbed by bunker
+          sounds.playShieldAbsorb();
+          const bunkerDamage = attackerDamage;
+          const remainingBunkerHp = absorbedByBunker.hp - bunkerDamage;
+          if (remainingBunkerHp <= 0) {
             bountyEarned = UNIT_SPECS.bunker.bounty;
-            killcam = {
-              attackerPlayer: currentPlayer,
-              attackerType: firingUnit.type,
-              victimPlayer: targetPlayer,
-              victimType: 'bunker',
-              bounty: bountyEarned,
-              timestamp: Date.now(),
-            };
+            sounds.playHitExplosion();
           }
-        } else if (hitEnemyUnit) {
-          const newHp = hitEnemyUnit.hp - 1;
-          if (newHp <= 0) {
+        } else {
+          // Direct hit on target
+          const remainingHp = hitEnemyUnit.hp - attackerDamage;
+          if (remainingHp <= 0) {
             unitDestroyed = true;
             bountyEarned = UNIT_SPECS[hitEnemyUnit.type].bounty;
+            sounds.playHitExplosion();
+
             killcam = {
               attackerPlayer: currentPlayer,
               attackerType: firingUnit.type,
-              victimPlayer: targetPlayer,
+              victimPlayer: enemyPlayer,
               victimType: hitEnemyUnit.type,
+              damageDealt: attackerDamage,
               bounty: bountyEarned,
               timestamp: Date.now(),
             };
+          } else {
+            sounds.playHit();
           }
         }
-
-        onShoot({
-          sourceXR: xr,
-          sourceYR: yr,
-          targetXR: tgtXR,
-          targetYR: tgtYR,
-          isHit: !!hitEnemyUnit,
-          hitUnitId: hitEnemyUnit?.id,
-          hitUnitType: hitEnemyUnit?.type,
-          absorbedByBunkerId: absorbedByBunker?.id,
-          unitDestroyed,
-          bountyEarned,
-          killcam,
-        });
+      } else {
+        sounds.playMiss();
       }
+
+      onShoot({
+        sourceXR: xr,
+        sourceYR: yr,
+        targetXR: finalImpactX / canvas.width,
+        targetYR: finalImpactY / canvas.height,
+        isHit,
+        hitUnitId: hitEnemyUnit?.id,
+        hitUnitType: hitEnemyUnit?.type,
+        absorbedByBunkerId: absorbedByBunker?.id,
+        unitDestroyed,
+        bountyEarned,
+        damageDealt: attackerDamage,
+        killcam,
+      });
     },
     [
       isFoldAnimating,
       phase,
-      units,
+      selectedUnitToModifyId,
       myPlayerId,
-      unitScale,
-      onSelectUnitForUpgrade,
+      units,
       selectedUnitToBuy,
-      foldConfig.currentMode,
       currentPlayer,
+      foldConfig.currentMode,
       terrain,
       onPlaceUnit,
       onShowToast,
+      onMoveUnit,
+      onDeleteUnit,
+      onSelectUnitToModify,
+      unitScale,
+      onSelectUnitForUpgrade,
       selectedFiringUnitId,
       wind,
       onShoot,
     ]
   );
 
+  const isMyTurnInBattle = phase === 'battle' && currentPlayer === myPlayerId;
+  const isTurnLocked = phase === 'battle' && currentPlayer !== myPlayerId;
+
   return (
     <div
-      className="relative rounded-2xl overflow-hidden shadow-2xl border border-slate-700/80 bg-[#090d16] transition-all duration-300"
+      className={`relative rounded-2xl overflow-hidden shadow-2xl border transition-all duration-300 ${
+        theme === 'day'
+          ? isTurnLocked
+            ? 'border-slate-300 opacity-95 bg-slate-100'
+            : isMyTurnInBattle
+            ? 'border-cyan-600 shadow-[0_0_25px_rgba(2,132,199,0.25)] bg-slate-100'
+            : 'border-slate-300 bg-slate-100'
+          : isTurnLocked
+          ? 'border-slate-800 opacity-95 bg-[#060a12]'
+          : isMyTurnInBattle
+          ? 'border-cyan-500/80 shadow-[0_0_25px_rgba(6,182,212,0.25)] bg-[#060a12]'
+          : 'border-slate-700/80 bg-[#060a12]'
+      }`}
       style={{
         width: `${targetDimensions.width}px`,
         height: `${targetDimensions.height}px`,
@@ -354,9 +712,24 @@ export const NotebookBoard: React.FC<NotebookBoardProps> = ({
         ref={canvasRef}
         width={targetDimensions.width}
         height={targetDimensions.height}
+        onMouseDown={(e) => handlePointerDown(e.clientX, e.clientY)}
+        onMouseMove={(e) => handlePointerMove(e.clientX, e.clientY)}
+        onMouseUp={(e) => handlePointerUp(e.clientX, e.clientY)}
+        onTouchStart={(e) => {
+          if (e.touches.length > 0) handlePointerDown(e.touches[0].clientX, e.touches[0].clientY);
+        }}
+        onTouchMove={(e) => {
+          if (e.touches.length > 0) handlePointerMove(e.touches[0].clientX, e.touches[0].clientY);
+        }}
+        onTouchEnd={(e) => {
+          if (e.changedTouches.length > 0)
+            handlePointerUp(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+        }}
         onClick={handleCanvasClick}
-        onTouchStart={handleCanvasClick}
-        className="block w-full h-full cursor-crosshair select-none"
+        onDoubleClick={handleCanvasDoubleClick}
+        className={`block w-full h-full select-none ${
+          isTurnLocked ? 'cursor-not-allowed' : 'cursor-crosshair'
+        }`}
       />
 
       {/* 3D Fold Holographic Sheet Transition */}
@@ -364,8 +737,8 @@ export const NotebookBoard: React.FC<NotebookBoardProps> = ({
         <div
           className={`absolute inset-0 pointer-events-none z-30 transition-all duration-700 ${
             foldingPlayer === 1
-              ? 'bg-gradient-to-r from-cyan-500/20 to-transparent'
-              : 'bg-gradient-to-l from-rose-500/20 to-transparent'
+              ? 'bg-gradient-to-r from-cyan-500/25 to-transparent'
+              : 'bg-gradient-to-l from-rose-500/25 to-transparent'
           }`}
           style={{
             backdropFilter: 'blur(3px)',

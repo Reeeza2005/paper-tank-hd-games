@@ -62,7 +62,7 @@ export function generateAISquad(terrain: TerrainType, budget: number = 1000): Un
           isDestroyed: false,
           angle: (Math.random() - 0.5) * 0.3,
           cooldownRemaining: 0,
-          upgrades: { extraHp: 0, inkRadiusBoost: 0, windResistance: false },
+          upgrades: { extraHp: 0, inkRadiusBoost: 0, damageBoost: 0, windResistance: false },
         });
         remainingBudget -= spec.cost;
         placed = true;

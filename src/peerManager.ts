@@ -1,5 +1,12 @@
 import Peer, { DataConnection } from 'peerjs';
-import { PeerMessage, PlayerId, Unit } from './types';
+import { PeerMessage, PlayerId } from './types';
+
+export const PEER_ICE_CONFIG = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:global.stun.twilio.com:3478' },
+  ],
+};
 
 export class PeerGameSession {
   private peer: Peer | null = null;
@@ -24,19 +31,20 @@ export class PeerGameSession {
     this.onMessageCallback = onMessage;
     this.onStatusChangeCallback = onStatusChange;
 
-    // Generate short memorable code
     const shortCode = 'tank-' + Math.floor(1000 + Math.random() * 9000);
     this.myPeerId = shortCode;
 
-    this.onStatusChangeCallback?.('در حال ساخت اتاق و دریافت شناسه...', false);
+    this.onStatusChangeCallback?.('در حال اتصال به سرور و ایجاد اتاق...', false);
 
     try {
-      this.peer = new Peer(shortCode);
+      this.peer = new Peer(shortCode, {
+        config: PEER_ICE_CONFIG,
+      });
 
       this.peer.on('open', (id) => {
         this.myPeerId = id;
         onReady(id);
-        this.onStatusChangeCallback?.('منتظر ورود حریف به اتاق...', false);
+        this.onStatusChangeCallback?.('اتاق ساخته شد! کد اتاق را برای حریف بفرستید.', false);
       });
 
       this.peer.on('connection', (connection) => {
@@ -45,24 +53,26 @@ export class PeerGameSession {
       });
 
       this.peer.on('error', (err) => {
-        // If shortCode was taken, retry with random peer
         if (err.type === 'unavailable-id') {
-          this.peer = new Peer();
+          // If custom ID was unavailable, retry with random peer
+          this.peer = new Peer({
+            config: PEER_ICE_CONFIG,
+          });
           this.peer.on('open', (id) => {
             this.myPeerId = id;
             onReady(id);
-            this.onStatusChangeCallback?.('منتظر ورود حریف...', false);
+            this.onStatusChangeCallback?.('اتاق ساخته شد! در انتظار ورود حریف...', false);
           });
           this.peer.on('connection', (connection) => {
             this.conn = connection;
             this.setupConnectionHandlers(onConnected);
           });
         } else {
-          this.onStatusChangeCallback?.(`خطا در ارتباط: ${err.message}`, false);
+          this.onStatusChangeCallback?.(`خطای ارتباطی: ${err.message || err.type}`, false);
         }
       });
     } catch (e: any) {
-      this.onStatusChangeCallback?.(`خطا: ${e.message}`, false);
+      this.onStatusChangeCallback?.(`خطای اتصال: ${e.message}`, false);
     }
   }
 
@@ -78,10 +88,12 @@ export class PeerGameSession {
     this.onMessageCallback = onMessage;
     this.onStatusChangeCallback = onStatusChange;
 
-    this.onStatusChangeCallback?.('در حال اتصال به سرور همتا...', false);
+    this.onStatusChangeCallback?.('در حال اتصال به شبکه WebRTC...', false);
 
     try {
-      this.peer = new Peer();
+      this.peer = new Peer({
+        config: PEER_ICE_CONFIG,
+      });
 
       this.peer.on('open', (id) => {
         this.myPeerId = id;
@@ -94,7 +106,10 @@ export class PeerGameSession {
       });
 
       this.peer.on('error', (err) => {
-        this.onStatusChangeCallback?.(`خطای اتصال: ${err.type === 'peer-unavailable' ? 'اتاقی با این کد یافت نشد!' : err.message}`, false);
+        this.onStatusChangeCallback?.(
+          `خطای اتصال: ${err.type === 'peer-unavailable' ? 'اتاقی با این شناسه یافت نشد!' : err.message}`,
+          false
+        );
       });
     } catch (e: any) {
       this.onStatusChangeCallback?.(`خطا: ${e.message}`, false);
@@ -105,7 +120,7 @@ export class PeerGameSession {
     if (!this.conn) return;
 
     this.conn.on('open', () => {
-      this.onStatusChangeCallback?.('متصل شد! آماده بازی.', true);
+      this.onStatusChangeCallback?.('اتصال همتا برقرار شد! بازیکنان آماده چیدمان هستند.', true);
       onConnected();
       // Send handshake
       this.send({ type: 'INIT_ACK', payload: { player: this.myPlayerId } });
@@ -121,11 +136,11 @@ export class PeerGameSession {
     });
 
     this.conn.on('close', () => {
-      this.onStatusChangeCallback?.('حریف از بازی خارج شد.', false);
+      this.onStatusChangeCallback?.('حریف از بازی خارج شد یا ارتباط قطع گردید.', false);
     });
 
     this.conn.on('error', (err) => {
-      this.onStatusChangeCallback?.(`خطای اتصال به حریف: ${err}`, false);
+      this.onStatusChangeCallback?.(`خطای ارتباطی با حریف: ${err}`, false);
     });
   }
 
