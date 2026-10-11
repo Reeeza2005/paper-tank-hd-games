@@ -5,7 +5,8 @@ import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
   return {
-    plugins: [react(), tailwindcss()],
+    base: '/paper-tank-hd-games/',
+  plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
