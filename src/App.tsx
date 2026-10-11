@@ -1,9 +1,4 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import confetti from 'canvas-confetti';
 import {
   Volume2,
@@ -12,23 +7,15 @@ import {
   Users,
   Bot,
   Globe,
-  Eye,
-  EyeOff,
   HelpCircle,
-  Download,
-  Copy,
-  Check,
-  Sparkles,
   Wind as WindIcon,
-  Coins,
   Shield,
-  Layers,
-  Send,
+  Factory as FactoryIcon,
   Crosshair,
   Sliders,
-  ArrowUpCircle,
-  Heart,
-  Zap,
+  DollarSign,
+  Maximize2,
+  Compass,
 } from 'lucide-react';
 import {
   GameMode,
@@ -38,24 +25,31 @@ import {
   Shot,
   AIDifficulty,
   TerrainType,
-  BoardSizePreset,
   UnitType,
   UNIT_SPECS,
   Wind,
+  FoldLineMode,
+  FoldLineConfig,
+  KillcamData,
   PeerMessage,
 } from './types';
 import { NotebookBoard } from './components/NotebookBoard';
 import { sounds } from './audio';
 import { generateAISquad, computeAIShot } from './aiBot';
 import { PeerGameSession } from './peerManager';
-import { isPointInObstacle } from './canvasUtils';
 
 export default function App() {
-  // Board Configuration & Dimension Presets
-  const [boardPreset, setBoardPreset] = useState<BoardSizePreset>('standard');
-  const [customWidth, setCustomWidth] = useState<number>(880);
+  // Game Setup & Dimensions
+  const [boardWidth, setBoardWidth] = useState<number>(920);
   const [terrain, setTerrain] = useState<TerrainType>('plain');
-  const [unitScale, setUnitScale] = useState<number>(1.0); // اسلایدر ابعاد ادوات
+  const [unitScale, setUnitScale] = useState<number>(1.0);
+  const [startingBudget, setStartingBudget] = useState<number>(1000);
+
+  // Dynamic Fold Line System
+  const [foldConfig, setFoldConfig] = useState<FoldLineConfig>({
+    dynamicEnabled: true,
+    currentMode: 'center',
+  });
 
   // Wind System
   const [windActive, setWindActive] = useState<boolean>(true);
@@ -64,6 +58,7 @@ export default function App() {
     speed: 4,
     xOffsetPx: 8,
     yOffsetPx: -4,
+    angle: 0,
   });
 
   // Game Mode & Flow
@@ -73,153 +68,206 @@ export default function App() {
   const [currentPlayer, setCurrentPlayer] = useState<PlayerId>(1);
   const [myPlayerId, setMyPlayerId] = useState<PlayerId>(1);
 
-  // Economy & Units
+  // Economy & Armies
   const [p1Coins, setP1Coins] = useState<number>(1000);
   const [p2Coins, setP2Coins] = useState<number>(1000);
   const [units, setUnits] = useState<Unit[]>([]);
   const [selectedUnitToBuy, setSelectedUnitToBuy] = useState<UnitType | null>('tank');
   const [selectedFiringUnitId, setSelectedFiringUnitId] = useState<string | null>(null);
 
-  // Upgrades Modal
+  // Upgrades & Modals
   const [upgradingUnit, setUpgradingUnit] = useState<Unit | null>(null);
-
-  // Shots & Animations
+  const [isHelpOpen, setIsHelpOpen] = useState<boolean>(false);
   const [shots, setShots] = useState<Shot[]>([]);
   const [isMuted, setIsMuted] = useState<boolean>(sounds.getMuted());
-  const [showMirrorHint, setShowMirrorHint] = useState<boolean>(false);
-  const [hideOpponentUnits, setHideOpponentUnits] = useState<boolean>(false);
   const [isFoldAnimating, setIsFoldAnimating] = useState<boolean>(false);
   const [foldingPlayer, setFoldingPlayer] = useState<PlayerId | null>(null);
-  const [lastShotOutcome, setLastShotOutcome] = useState<{ isHit: boolean; text: string } | null>(null);
   const [winner, setWinner] = useState<PlayerId | null>(null);
 
-  // Online PeerJS
+  // Killcam Cinematic Popup
+  const [killcam, setKillcam] = useState<KillcamData | null>(null);
+
+  // Toast Notification
+  const [toast, setToast] = useState<{ msg: string; icon: string } | null>(null);
+  const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const showToast = useCallback((msg: string, icon: string = '🎯') => {
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    setToast({ msg, icon });
+    toastTimeoutRef.current = setTimeout(() => {
+      setToast(null);
+    }, 2800);
+  }, []);
+
+  // PeerJS Online Multiplayer
   const [isOnlineModalOpen, setIsOnlineModalOpen] = useState<boolean>(false);
   const [roomCode, setRoomCode] = useState<string>('');
   const [inputJoinCode, setInputJoinCode] = useState<string>('');
   const [peerStatus, setPeerStatus] = useState<string>('');
-  const [isPeerConnected, setIsPeerConnected] = useState<boolean>(false);
-  const [copiedCode, setCopiedCode] = useState<boolean>(false);
-  const [chatMessages, setChatMessages] = useState<Array<{ sender: string; text: string }>>([]);
-  const [chatInput, setChatInput] = useState<string>('');
-  const [isHelpModalOpen, setIsHelpModalOpen] = useState<boolean>(false);
-
   const peerSessionRef = useRef<PeerGameSession | null>(null);
 
-  // Target Dimensions based on preset or slider
-  const getCanvasDimensions = () => {
-    if (boardPreset === 'wide') return { width: 1040, height: 520 };
-    if (boardPreset === 'custom') return { width: customWidth, height: Math.round(customWidth * 0.56) };
-    return { width: 880, height: 500 }; // standard
+  // Calculate proportional height from width (16:9 approx)
+  const targetDimensions = {
+    width: boardWidth,
+    height: Math.round(boardWidth * 0.554),
   };
-  const dimensions = getCanvasDimensions();
-
-  // PeerSession lifecycle
-  useEffect(() => {
-    peerSessionRef.current = new PeerGameSession();
-    return () => {
-      peerSessionRef.current?.destroy();
-    };
-  }, []);
 
   // Randomize wind
-  const randomizeWind = () => {
+  const randomizeWind = useCallback(() => {
     if (!windActive) {
-      setWind({ active: false, speed: 0, xOffsetPx: 0, yOffsetPx: 0 });
+      setWind({ active: false, speed: 0, xOffsetPx: 0, yOffsetPx: 0, angle: 0 });
       return;
     }
-    const speed = Math.floor(2 + Math.random() * 8); // 2 to 10 m/s
+    const speed = Math.floor(2 + Math.random() * 8);
     const angle = Math.random() * Math.PI * 2;
-    const maxOffset = speed * 2.2;
-    setWind({
-      active: true,
-      speed,
-      xOffsetPx: Math.round(Math.cos(angle) * maxOffset),
-      yOffsetPx: Math.round(Math.sin(angle) * maxOffset),
-    });
-  };
-
-  useEffect(() => {
-    randomizeWind();
+    const xOffsetPx = Math.round(Math.cos(angle) * speed * 2.2);
+    const yOffsetPx = Math.round(Math.sin(angle) * speed * 2.2);
+    setWind({ active: true, speed, xOffsetPx, yOffsetPx, angle });
   }, [windActive]);
 
-  const handleToggleSound = () => {
-    const muted = sounds.toggleMute();
-    setIsMuted(muted);
-  };
+  // Turn Progression: Decrease cooldown, generate factory income, roll dynamic fold
+  const proceedToNextTurn = useCallback(
+    (nextPlayer: PlayerId) => {
+      setCurrentPlayer(nextPlayer);
+      if (mode === 'local') setMyPlayerId(nextPlayer);
 
-  const resetGame = (newMode: GameMode = mode, newTerrain: TerrainType = terrain) => {
-    setUnits([]);
-    setShots([]);
-    setP1Coins(1000);
-    setP2Coins(1000);
-    setPhase('deployment');
-    setCurrentPlayer(1);
-    setFoldingPlayer(null);
-    setIsFoldAnimating(false);
-    setLastShotOutcome(null);
-    setWinner(null);
-    setSelectedFiringUnitId(null);
-    setUpgradingUnit(null);
-    randomizeWind();
+      // 1. Cool down units for next player
+      setUnits((prev) =>
+        prev.map((u) => {
+          if (u.player === nextPlayer && u.cooldownRemaining > 0) {
+            return { ...u, cooldownRemaining: u.cooldownRemaining - 1 };
+          }
+          return u;
+        })
+      );
 
-    if (newMode !== 'online') {
-      setMyPlayerId(1);
-    }
-  };
+      // 2. Factory Income (+50 coins per alive factory)
+      setUnits((currentUnits) => {
+        const factories = currentUnits.filter(
+          (u) => u.player === nextPlayer && u.type === 'factory' && !u.isDestroyed
+        );
+        if (factories.length > 0) {
+          const income = factories.length * 50;
+          if (nextPlayer === 1) setP1Coins((c) => c + income);
+          else setP2Coins((c) => c + income);
+          sounds.playCoinEarn();
+          showToast(`🏭 کارخانه‌های بازیکن ${nextPlayer} درآمد تولید کردند: +${income} 🪙`, '💰');
+        }
+        return currentUnits;
+      });
 
-  const handleSelectMode = (newMode: GameMode) => {
-    if (newMode === 'online') {
-      setIsOnlineModalOpen(true);
-      return;
-    }
-    setMode(newMode);
-    resetGame(newMode);
-  };
+      // 3. Dynamic Fold Line Randomization (if enabled)
+      if (foldConfig.dynamicEnabled) {
+        const modes: FoldLineMode[] = ['center', 'slight_right', 'slight_left'];
+        const randomMode = modes[Math.floor(Math.random() * modes.length)];
+        setFoldConfig((prev) => ({ ...prev, currentMode: randomMode }));
+      }
 
-  // --- Deployment Phase: Buying Units ---
-  const handlePlaceUnit = (xRatio: number, yRatio: number) => {
-    if (phase !== 'deployment' || !selectedUnitToBuy) return;
+      randomizeWind();
+    },
+    [mode, foldConfig.dynamicEnabled, randomizeWind, showToast]
+  );
 
-    const activePlayer = mode === 'online' ? myPlayerId : currentPlayer;
-    const currentCoins = activePlayer === 1 ? p1Coins : p2Coins;
-    const spec = UNIT_SPECS[selectedUnitToBuy];
+  // SMART WIN CONDITION CHECK:
+  // If player has 0 combat units AND coins < 100 (cannot buy soldier) -> Opponent wins!
+  const checkSmartWinCondition = useCallback(
+    (currentUnits: Unit[], p1C: number, p2C: number) => {
+      if (phase === 'deployment' || winner) return;
 
-    if (currentCoins < spec.cost) {
-      setLastShotOutcome({ isHit: false, text: 'سکه کافی برای خرید این نیرو ندارید!' });
-      setTimeout(() => setLastShotOutcome(null), 2000);
-      return;
-    }
+      const p1CombatUnits = currentUnits.filter(
+        (u) => u.player === 1 && !u.isDestroyed && UNIT_SPECS[u.type].canShoot
+      );
+      const p2CombatUnits = currentUnits.filter(
+        (u) => u.player === 2 && !u.isDestroyed && UNIT_SPECS[u.type].canShoot
+      );
 
-    const newUnit: Unit = {
-      id: `unit-${activePlayer}-${Date.now()}-${Math.random()}`,
-      type: selectedUnitToBuy,
-      xRatio,
-      yRatio,
-      player: activePlayer,
-      hp: spec.baseHp,
-      maxHp: spec.baseHp,
-      isDestroyed: false,
-      angle: (Math.random() - 0.5) * 0.25,
-      upgrades: { extraHp: 0, inkRadiusBoost: 0, windResistance: false },
-    };
+      const p1TotalAlive = currentUnits.filter((u) => u.player === 1 && !u.isDestroyed);
+      const p2TotalAlive = currentUnits.filter((u) => u.player === 2 && !u.isDestroyed);
 
-    sounds.playTankPlace();
-    setUnits((prev) => [...prev, newUnit]);
+      // Player 2 wins if Player 1 cannot fight
+      if (
+        (p1TotalAlive.length === 0 || (p1CombatUnits.length === 0 && p1C < 100)) &&
+        p2TotalAlive.length > 0
+      ) {
+        setWinner(2);
+        setPhase('gameover');
+        sounds.playVictory();
+        confetti({ particleCount: 140, spread: 90, origin: { y: 0.6 } });
+        return;
+      }
 
-    if (activePlayer === 1) {
-      setP1Coins((c) => c - spec.cost);
-    } else {
-      setP2Coins((c) => c - spec.cost);
-    }
-  };
+      // Player 1 wins if Player 2 cannot fight
+      if (
+        (p2TotalAlive.length === 0 || (p2CombatUnits.length === 0 && p2C < 100)) &&
+        p1TotalAlive.length > 0
+      ) {
+        setWinner(1);
+        setPhase('gameover');
+        sounds.playVictory();
+        confetti({ particleCount: 140, spread: 90, origin: { y: 0.6 } });
+        return;
+      }
+    },
+    [phase, winner]
+  );
 
-  const handleFinishDeployment = () => {
-    const activePlayer = mode === 'online' ? myPlayerId : currentPlayer;
-    const playerUnits = units.filter((u) => u.player === activePlayer);
+  // Place unit (Deployment OR Mid-Battle Reinforcement)
+  const handlePlaceUnit = useCallback(
+    (xRatio: number, yRatio: number, unitType: UnitType) => {
+      const spec = UNIT_SPECS[unitType];
+      const currentCoins = currentPlayer === 1 ? p1Coins : p2Coins;
 
-    if (playerUnits.length === 0) {
-      alert('حداقل یک نیرو در زمین مستقر کنید!');
+      if (currentCoins < spec.cost) {
+        showToast('سکه کافی برای خرید این نیرو ندارید!', '💰');
+        return;
+      }
+
+      const newUnit: Unit = {
+        id: `unit-${Date.now()}-${Math.random()}`,
+        type: unitType,
+        xRatio,
+        yRatio,
+        player: currentPlayer,
+        hp: spec.baseHp,
+        maxHp: spec.baseHp,
+        isDestroyed: false,
+        angle: (Math.random() - 0.5) * 0.2,
+        cooldownRemaining: 0,
+        upgrades: { extraHp: 0, inkRadiusBoost: 0, windResistance: false },
+      };
+
+      if (currentPlayer === 1) {
+        setP1Coins((c) => c - spec.cost);
+      } else {
+        setP2Coins((c) => c - spec.cost);
+      }
+
+      setUnits((prev) => [...prev, newUnit]);
+      sounds.playPenDot();
+      sounds.playTankPlace();
+
+      if (phase === 'battle') {
+        showToast(`واحد کمکی ${spec.name} مستقر شد!`, '🛡️');
+        // Unselect buy mode after placing reinforcement
+        setSelectedUnitToBuy(null);
+
+        // Sync via PeerJS if online
+        if (mode === 'online' && peerSessionRef.current) {
+          peerSessionRef.current.send({
+            type: 'REINFORCE_UNIT',
+            payload: { unit: newUnit, remainingCoins: currentCoins - spec.cost },
+          });
+        }
+      }
+    },
+    [currentPlayer, p1Coins, p2Coins, phase, showToast, mode]
+  );
+
+  // Complete initial deployment
+  const finishDeployment = useCallback(() => {
+    const myUnits = units.filter((u) => u.player === currentPlayer);
+    if (myUnits.length === 0) {
+      showToast('حداقل یک واحد رزمی در زمین مستقر کنید!', '⚠️');
       return;
     }
 
@@ -227,904 +275,1047 @@ export default function App() {
       if (currentPlayer === 1) {
         setCurrentPlayer(2);
         setMyPlayerId(2);
+        showToast('نوبت استقرار ارتش بازیکن ۲ 🔴', '🚩');
       } else {
         setPhase('battle');
-        setCurrentPlayer(1);
-        setMyPlayerId(1);
-        sounds.playPenScratch();
-        const firstAlive = units.find((u) => u.player === 1 && !u.isDestroyed);
-        if (firstAlive) setSelectedFiringUnitId(firstAlive.id);
+        proceedToNextTurn(1);
+        showToast('نبرد آتشین آغاز شد! شلیک کنید ⚔️', '🔥');
       }
     } else if (mode === 'ai') {
-      const aiSquad = generateAISquad(terrain);
+      const aiSquad = generateAISquad(terrain, startingBudget);
       setUnits((prev) => [...prev, ...aiSquad]);
+      setP2Coins(0);
       setPhase('battle');
-      setCurrentPlayer(1);
-      sounds.playPenScratch();
-      const firstAlive = units.find((u) => u.player === 1 && !u.isDestroyed);
-      if (firstAlive) setSelectedFiringUnitId(firstAlive.id);
-    } else if (mode === 'online') {
-      peerSessionRef.current?.send({
-        type: 'DEPLOY_DONE',
-        payload: { units: playerUnits },
-      });
-      setPeerStatus('چیدمان ارسال شد. منتظر تایید حریف...');
+      proceedToNextTurn(1);
+      showToast('نبرد با ارتش هوش مصنوعی آغاز شد! ⚔️', '🤖');
     }
-  };
+  }, [units, currentPlayer, mode, terrain, startingBudget, proceedToNextTurn, showToast]);
 
-  // --- Upgrades System ---
-  const handleUpgradeUnit = (type: 'hp' | 'radius' | 'wind') => {
-    if (!upgradingUnit) return;
-    const activePlayer = upgradingUnit.player;
-    const currentCoins = activePlayer === 1 ? p1Coins : p2Coins;
+  // Execute shot
+  const handleShoot = useCallback(
+    (shotData: {
+      sourceXR: number;
+      sourceYR: number;
+      targetXR: number;
+      targetYR: number;
+      isHit: boolean;
+      hitUnitId?: string;
+      hitUnitType?: UnitType;
+      absorbedByBunkerId?: string;
+      unitDestroyed?: boolean;
+      bountyEarned: number;
+      killcam?: KillcamData;
+    }) => {
+      setIsFoldAnimating(true);
+      setFoldingPlayer(currentPlayer);
+      sounds.playPenDot();
+      sounds.playFoldSweep();
 
-    let cost = 100;
-    if (type === 'hp') cost = 120;
-    if (type === 'radius') cost = 90;
-    if (type === 'wind') cost = 100;
+      // Put firing unit on 1-turn Cooldown
+      if (selectedFiringUnitId) {
+        setUnits((prev) =>
+          prev.map((u) => (u.id === selectedFiringUnitId ? { ...u, cooldownRemaining: 1 } : u))
+        );
+      }
 
-    if (currentCoins < cost) {
-      alert('سکه کافی برای این ارتقا ندارید!');
+      setTimeout(() => {
+        setIsFoldAnimating(false);
+
+        // Process Damage & Bounty
+        if (shotData.absorbedByBunkerId) {
+          // Bunker took hit!
+          sounds.playShieldAbsorb();
+          setUnits((prev) =>
+            prev.map((u) => {
+              if (u.id === shotData.absorbedByBunkerId) {
+                const nextHp = u.hp - 1;
+                return { ...u, hp: nextHp, isDestroyed: nextHp <= 0 };
+              }
+              return u;
+            })
+          );
+
+          if (shotData.unitDestroyed) {
+            if (currentPlayer === 1) setP1Coins((c) => c + shotData.bountyEarned);
+            else setP2Coins((c) => c + shotData.bountyEarned);
+            sounds.playCinematicBoom();
+            if (shotData.killcam) setKillcam(shotData.killcam);
+            showToast(`💥 سنگر بتنی منهدم شد! (+${shotData.bountyEarned}🪙 غنیمت)`, '🔥');
+          } else {
+            showToast('🛡️ سنگر بتنی ضربه را مهار کرد!', '🏰');
+          }
+        } else if (shotData.hitUnitId) {
+          sounds.playHitExplosion();
+          setUnits((prev) =>
+            prev.map((u) => {
+              if (u.id === shotData.hitUnitId) {
+                const nextHp = u.hp - 1;
+                return { ...u, hp: nextHp, isDestroyed: nextHp <= 0 };
+              }
+              return u;
+            })
+          );
+
+          if (shotData.unitDestroyed) {
+            if (currentPlayer === 1) setP1Coins((c) => c + shotData.bountyEarned);
+            else setP2Coins((c) => c + shotData.bountyEarned);
+            sounds.playCinematicBoom();
+            if (shotData.killcam) setKillcam(shotData.killcam);
+            showToast(`💥 واحد دشمن منهدم شد! (+${shotData.bountyEarned}🪙 غنیمت)`, '🔥');
+          } else {
+            showToast('🎯 اصابت مستقیم به هدف!', '💥');
+          }
+        } else {
+          sounds.playMiss();
+          showToast('💨 تیر خطا رفت!', '💨');
+        }
+
+        const newShot: Shot = {
+          id: `shot-${Date.now()}`,
+          sourceXRatio: shotData.sourceXR,
+          sourceYRatio: shotData.sourceYR,
+          targetXRatio: shotData.targetXR,
+          targetYRatio: shotData.targetYR,
+          player: currentPlayer,
+          firingUnitType: (units.find((u) => u.id === selectedFiringUnitId)?.type || 'tank') as UnitType,
+          firingUnitId: selectedFiringUnitId || '',
+          inkRadius: 10,
+          isHit: shotData.isHit,
+          hitUnitId: shotData.hitUnitId,
+          hitUnitType: shotData.hitUnitType,
+          absorbedByBunkerId: shotData.absorbedByBunkerId,
+          unitDestroyed: shotData.unitDestroyed,
+          bountyEarned: shotData.bountyEarned,
+          timestamp: Date.now(),
+        };
+
+        setShots((prev) => [...prev, newShot]);
+
+        // Online sync
+        if (mode === 'online' && peerSessionRef.current) {
+          peerSessionRef.current.send({
+            type: 'SHOOT',
+            payload: shotData,
+          });
+        }
+
+        // Check Smart Win Condition
+        setTimeout(() => {
+          setUnits((currUnits) => {
+            checkSmartWinCondition(currUnits, p1Coins, p2Coins);
+            return currUnits;
+          });
+
+          if (!winner) {
+            const nextP = currentPlayer === 1 ? 2 : 1;
+            proceedToNextTurn(nextP);
+          }
+        }, 300);
+      }, 1200);
+    },
+    [
+      currentPlayer,
+      selectedFiringUnitId,
+      units,
+      p1Coins,
+      p2Coins,
+      mode,
+      checkSmartWinCondition,
+      winner,
+      proceedToNextTurn,
+      showToast,
+    ]
+  );
+
+  // AI Turn Execution
+  useEffect(() => {
+    if (phase !== 'battle' || mode !== 'ai' || currentPlayer !== 2 || isFoldAnimating || winner) {
       return;
     }
 
-    setUnits((prev) =>
-      prev.map((u) => {
-        if (u.id !== upgradingUnit.id) return u;
-        const newUpgrades = { ...u.upgrades };
-        let newHp = u.hp;
-        let newMaxHp = u.maxHp;
+    const timer = setTimeout(() => {
+      const p1Alive = units.filter((u) => u.player === 1 && !u.isDestroyed);
+      const aiUnits = units.filter((u) => u.player === 2);
 
-        if (type === 'hp') {
-          newUpgrades.extraHp += 1;
-          newHp += 1;
-          newMaxHp += 1;
-        } else if (type === 'radius') {
-          newUpgrades.inkRadiusBoost += 1;
-        } else if (type === 'wind') {
-          newUpgrades.windResistance = true;
-        }
-
-        const updated = { ...u, hp: newHp, maxHp: newMaxHp, upgrades: newUpgrades };
-        setUpgradingUnit(updated);
-        return updated;
-      })
-    );
-
-    if (activePlayer === 1) setP1Coins((c) => c - cost);
-    else setP2Coins((c) => c - cost);
-
-    sounds.playTankPlace();
-  };
-
-  // Auto select active firing unit when turn changes
-  useEffect(() => {
-    if (phase === 'battle') {
-      const aliveUnits = units.filter((u) => u.player === currentPlayer && !u.isDestroyed);
-      if (aliveUnits.length > 0 && (!selectedFiringUnitId || !aliveUnits.some((u) => u.id === selectedFiringUnitId))) {
-        setSelectedFiringUnitId(aliveUnits[0].id);
-      }
-    }
-  }, [currentPlayer, phase, units]);
-
-  // --- Shooting Phase ---
-  const executeShot = (sourceXRatio: number, sourceYRatio: number, shooter: PlayerId, firingUnit: Unit) => {
-    if (isFoldAnimating || phase === 'gameover') return;
-
-    setIsFoldAnimating(true);
-    setFoldingPlayer(shooter);
-    sounds.playPenDot();
-    sounds.playPaperFold();
-
-    const spec = UNIT_SPECS[firingUnit.type];
-    const inkRadius = (spec.baseInkRadius + firingUnit.upgrades.inkRadiusBoost * 2.5) * unitScale;
-
-    // Wind calculation (account for wind resistance upgrade)
-    const effectiveWindX = firingUnit.upgrades.windResistance ? wind.xOffsetPx * 0.5 : wind.xOffsetPx;
-    const effectiveWindY = firingUnit.upgrades.windResistance ? wind.yOffsetPx * 0.5 : wind.yOffsetPx;
-
-    const windNormX = wind.active ? effectiveWindX / dimensions.width : 0;
-    const windNormY = wind.active ? effectiveWindY / dimensions.height : 0;
-
-    // Mirrored formula:
-    const targetXRatio = 1 - sourceXRatio + windNormX;
-    const targetYRatio = sourceYRatio + windNormY;
-
-    setTimeout(() => {
-      const opponentPlayer = shooter === 1 ? 2 : 1;
-      let hitUnit: Unit | null = null;
-      let isBlockedByObstacle = false;
-
-      // 1. Check if shot hits rock bunker/obstacle
-      if (terrain === 'obstacles' && isPointInObstacle(targetXRatio, targetYRatio)) {
-        isBlockedByObstacle = true;
+      // AI mid-battle reinforcement check: if AI has >= 250 coins and fewer combat units
+      const aiCombatCount = aiUnits.filter(
+        (u) => !u.isDestroyed && UNIT_SPECS[u.type].canShoot
+      ).length;
+      if (p2Coins >= 250 && aiCombatCount < 2) {
+        handlePlaceUnit(0.65 + Math.random() * 0.25, 0.25 + Math.random() * 0.45, 'tank');
       }
 
-      // 2. Check hit on units if not blocked
-      if (!isBlockedByObstacle) {
-        let minDistance = Infinity;
-        units.forEach((u) => {
-          if (u.player === opponentPlayer && !u.isDestroyed) {
-            const dx = (u.xRatio - targetXRatio) * dimensions.width;
-            const dy = (u.yRatio - targetYRatio) * dimensions.height;
-            const dist = Math.hypot(dx, dy);
+      const aiShot = computeAIShot(
+        p1Alive,
+        aiUnits,
+        shots,
+        aiDifficulty,
+        targetDimensions.width,
+        targetDimensions.height,
+        wind,
+        foldConfig.currentMode
+      );
 
-            const hitThreshold = (UNIT_SPECS[u.type].baseHitRadius + spec.baseInkRadius) * unitScale;
-            if (dist <= hitThreshold && dist < minDistance) {
-              minDistance = dist;
-              hitUnit = u;
-            }
+      if (aiShot) {
+        setSelectedFiringUnitId(aiShot.firingUnit.id);
+        // Trigger AI shot via virtual click
+        const clickX = aiShot.xRatio * targetDimensions.width;
+        const clickY = aiShot.yRatio * targetDimensions.height;
+
+        // Simulate click
+        const simulatedEvent = {
+          clientX: clickX,
+          clientY: clickY,
+        } as any;
+        // In this architecture, we can call handleShoot directly
+        const reflected = {
+          rx: (1 - aiShot.xRatio) * targetDimensions.width,
+          ry: aiShot.yRatio * targetDimensions.height,
+        };
+        const targetXR = reflected.rx / targetDimensions.width;
+        const targetYR = reflected.ry / targetDimensions.height;
+
+        // Find if target lands on P1
+        let hit: Unit | null = null;
+        for (const u of p1Alive) {
+          const dist = Math.hypot(
+            u.xRatio * targetDimensions.width - reflected.rx,
+            u.yRatio * targetDimensions.height - reflected.ry
+          );
+          if (dist <= 30) {
+            hit = u;
+            break;
           }
-        });
-      }
-
-      const isHit = !!hitUnit;
-      let unitDestroyed = false;
-      let bountyEarned = 0;
-      let updatedUnits = units;
-
-      if (isBlockedByObstacle) {
-        sounds.playMiss();
-        setLastShotOutcome({ isHit: false, text: '🛡️ تیر به سنگر بتنی برخورد کرد و دفع شد!' });
-      } else if (hitUnit) {
-        sounds.playHit();
-        const target = hitUnit as Unit;
-        const remainingHp = target.hp - 1;
-
-        if (remainingHp <= 0) {
-          // Unit Destroyed!
-          unitDestroyed = true;
-          bountyEarned = UNIT_SPECS[target.type].bounty;
-          setLastShotOutcome({
-            isHit: true,
-            text: `💥 ${UNIT_SPECS[target.type].name} کاملاً منهدم شد! (+${bountyEarned}🪙 پاداش ۱/۳)`,
-          });
-
-          if (shooter === 1) setP1Coins((c) => c + bountyEarned);
-          else setP2Coins((c) => c + bountyEarned);
-
-          updatedUnits = units.map((u) =>
-            u.id === target.id ? { ...u, hp: 0, isDestroyed: true } : u
-          );
-        } else {
-          // Unit Damaged!
-          setLastShotOutcome({
-            isHit: true,
-            text: `🎯 به ${UNIT_SPECS[target.type].name} اصابت کرد! (۱ آسیب وارد شد، جان باقی‌مانده: ${remainingHp})`,
-          });
-          updatedUnits = units.map((u) =>
-            u.id === target.id ? { ...u, hp: remainingHp } : u
-          );
         }
-        setUnits(updatedUnits);
-      } else {
-        sounds.playMiss();
-        setLastShotOutcome({
-          isHit: false,
-          text: wind.active ? '💨 خطا رفت! (باد اثر جوهر را منحرف ساخت)' : '💨 خطا رفت! اثر جوهر باقی ماند.',
+
+        handleShoot({
+          sourceXR: aiShot.xRatio,
+          sourceYR: aiShot.yRatio,
+          targetXR,
+          targetYR,
+          isHit: !!hit,
+          hitUnitId: hit?.id,
+          hitUnitType: hit?.type,
+          unitDestroyed: hit ? hit.hp - 1 <= 0 : false,
+          bountyEarned: hit && hit.hp - 1 <= 0 ? UNIT_SPECS[hit.type].bounty : 0,
         });
-      }
-
-      // Record shot
-      const newShot: Shot = {
-        id: `shot-${Date.now()}`,
-        sourceXRatio,
-        sourceYRatio,
-        targetXRatio,
-        targetYRatio,
-        player: shooter,
-        firingUnitType: firingUnit.type,
-        inkRadius,
-        isHit,
-        isBlockedByObstacle,
-        hitUnitId: hitUnit ? (hitUnit as Unit).id : undefined,
-        hitUnitType: hitUnit ? (hitUnit as Unit).type : undefined,
-        unitDestroyed,
-        bountyEarned,
-        windApplied: wind.active ? { xOffsetPx: effectiveWindX, yOffsetPx: effectiveWindY } : undefined,
-        timestamp: Date.now(),
-      };
-      setShots((prev) => [...prev, newShot]);
-
-      setIsFoldAnimating(false);
-      setFoldingPlayer(null);
-
-      // Check GameOver
-      const p1Alive = updatedUnits.filter((u) => u.player === 1 && !u.isDestroyed).length;
-      const p2Alive = updatedUnits.filter((u) => u.player === 2 && !u.isDestroyed).length;
-
-      if (p2Alive === 0) {
-        setWinner(1);
-        setPhase('gameover');
-        sounds.playVictory();
-        confetti({ particleCount: 140, spread: 85, origin: { y: 0.6 } });
-        return;
-      }
-      if (p1Alive === 0) {
-        setWinner(2);
-        setPhase('gameover');
-        sounds.playVictory();
-        confetti({ particleCount: 140, spread: 85, origin: { y: 0.6 } });
-        return;
-      }
-
-      // Turn transition
-      randomizeWind();
-      const nextPlayer = shooter === 1 ? 2 : 1;
-      setCurrentPlayer(nextPlayer);
-
-      if (mode === 'local') setMyPlayerId(nextPlayer);
-
-      // Trigger AI
-      if (mode === 'ai' && nextPlayer === 2) {
-        setTimeout(() => triggerAITurn(updatedUnits), 900);
+      } else {
+        // AI has no shooters; pass turn
+        proceedToNextTurn(1);
       }
     }, 1400);
+
+    return () => clearTimeout(timer);
+  }, [
+    phase,
+    mode,
+    currentPlayer,
+    isFoldAnimating,
+    winner,
+    units,
+    p2Coins,
+    shots,
+    aiDifficulty,
+    targetDimensions,
+    wind,
+    foldConfig,
+    handlePlaceUnit,
+    handleShoot,
+    proceedToNextTurn,
+  ]);
+
+  // Restart Game
+  const resetGame = useCallback(() => {
+    setPhase('deployment');
+    setCurrentPlayer(1);
+    setMyPlayerId(1);
+    setP1Coins(startingBudget);
+    setP2Coins(startingBudget);
+    setUnits([]);
+    setShots([]);
+    setSelectedFiringUnitId(null);
+    setSelectedUnitToBuy('tank');
+    setWinner(null);
+    setKillcam(null);
+    randomizeWind();
+    showToast('میدان نبرد پاکسازی و مجدداً آماده شد 🔄', '✨');
+  }, [startingBudget, randomizeWind, showToast]);
+
+  // PeerJS Session Setup
+  const openOnlineModal = () => {
+    setIsOnlineModalOpen(true);
   };
 
-  const handleShoot = (xRatio: number, yRatio: number) => {
-    if (phase !== 'battle' || isFoldAnimating) return;
-    if (currentPlayer !== myPlayerId) return;
-
-    const firingUnit = units.find((u) => u.id === selectedFiringUnitId);
-    if (!firingUnit || firingUnit.isDestroyed) {
-      alert('لطفاً ابتدا یکی از ادوات زنده را برای شلیک انتخاب کنید!');
-      return;
-    }
-
-    executeShot(xRatio, yRatio, currentPlayer, firingUnit);
-
-    if (mode === 'online') {
-      peerSessionRef.current?.send({
-        type: 'SHOOT',
-        payload: { xRatio, yRatio, player: currentPlayer, firingUnit },
-      });
-    }
-  };
-
-  const triggerAITurn = (currentUnits: Unit[]) => {
-    const aiData = computeAIShot(
-      currentUnits.filter((u) => u.player === 1),
-      currentUnits.filter((u) => u.player === 2),
-      shots,
-      aiDifficulty,
-      dimensions.width,
-      dimensions.height,
-      wind
-    );
-    executeShot(aiData.xRatio, aiData.yRatio, 2, aiData.firingUnit);
-  };
-
-  // PeerJS Online Multiplayer
-  const handleHostRoom = () => {
-    if (!peerSessionRef.current) return;
-    setPeerStatus('در حال ثبت اتاق در شبکه همتا...');
+  const createOnlineRoom = () => {
+    if (!peerSessionRef.current) peerSessionRef.current = new PeerGameSession();
     peerSessionRef.current.initHost(
       (code) => {
         setRoomCode(code);
-        setPeerStatus('اتاق ساخته شد! کد را برای دوستتان بفرستید.');
+        setMyPlayerId(1);
+        setMode('online');
       },
       () => {
-        setIsPeerConnected(true);
-        setMode('online');
-        setMyPlayerId(1);
-        resetGame('online');
-        setTimeout(() => setIsOnlineModalOpen(false), 800);
+        setPeerStatus('✅ حریف متصل شد! نبرد آنلاین آغاز گردید.');
+        setTimeout(() => setIsOnlineModalOpen(false), 1200);
+        resetGame();
       },
-      handlePeerMessage,
-      (status, connected) => {
-        setPeerStatus(status);
-        setIsPeerConnected(connected);
-      }
+      (msg) => {
+        if (msg.type === 'SHOOT') handleShoot(msg.payload);
+        else if (msg.type === 'REINFORCE_UNIT') {
+          setUnits((prev) => [...prev, msg.payload.unit]);
+          setP2Coins(msg.payload.remainingCoins);
+        }
+      },
+      (st) => setPeerStatus(st)
     );
   };
 
-  const handleJoinRoom = () => {
-    if (!peerSessionRef.current || !inputJoinCode.trim()) return;
-    setPeerStatus('در حال اتصال به اتاق...');
+  const joinOnlineRoom = () => {
+    if (!inputJoinCode) return alert('کد اتاق را وارد کنید');
+    if (!peerSessionRef.current) peerSessionRef.current = new PeerGameSession();
     peerSessionRef.current.joinRoom(
       inputJoinCode.trim(),
       () => {
-        setIsPeerConnected(true);
-        setMode('online');
         setMyPlayerId(2);
-        resetGame('online');
-        setTimeout(() => setIsOnlineModalOpen(false), 800);
+        setMode('online');
+        setPeerStatus('✅ به اتاق بازی وصل شدید!');
+        setTimeout(() => setIsOnlineModalOpen(false), 1000);
+        resetGame();
       },
-      handlePeerMessage,
-      (status, connected) => {
-        setPeerStatus(status);
-        setIsPeerConnected(connected);
-      }
+      (msg: PeerMessage) => {
+        if (msg.type === 'SHOOT') handleShoot(msg.payload);
+        else if (msg.type === 'REINFORCE_UNIT') {
+          setUnits((prev) => [...prev, msg.payload.unit]);
+          setP1Coins(msg.payload.remainingCoins);
+        }
+      },
+      (st: string) => setPeerStatus(st)
     );
   };
 
-  const handlePeerMessage = (msg: PeerMessage) => {
-    if (msg.type === 'DEPLOY_DONE') {
-      const opponentUnits: Unit[] = msg.payload.units;
-      setUnits((prev) => {
-        const combined = [...prev.filter((u) => u.player === myPlayerId), ...opponentUnits];
-        setPhase('battle');
-        setCurrentPlayer(1);
-        setLastShotOutcome({ isHit: false, text: 'نبرد آغاز شد! نوبت شلیک بازیکن ۱.' });
-        return combined;
-      });
-    } else if (msg.type === 'SHOOT') {
-      const { xRatio, yRatio, player, firingUnit } = msg.payload;
-      executeShot(xRatio, yRatio, player, firingUnit);
-    } else if (msg.type === 'CHAT') {
-      setChatMessages((prev) => [...prev, { sender: 'حریف', text: msg.payload.text }]);
+  // Upgrades
+  const handleApplyUpgrade = (type: 'hp' | 'radius' | 'wind') => {
+    if (!upgradingUnit) return;
+    const cost = type === 'hp' ? 120 : type === 'radius' ? 90 : 100;
+    const currentCoins = upgradingUnit.player === 1 ? p1Coins : p2Coins;
+
+    if (currentCoins < cost) {
+      showToast('سکه کافی برای خرید این ارتقا ندارید!', '💰');
+      return;
     }
+
+    if (upgradingUnit.player === 1) setP1Coins((c) => c - cost);
+    else setP2Coins((c) => c - cost);
+
+    setUnits((prev) =>
+      prev.map((u) => {
+        if (u.id === upgradingUnit.id) {
+          if (type === 'hp') return { ...u, hp: u.hp + 1, maxHp: u.maxHp + 1 };
+          if (type === 'radius')
+            return {
+              ...u,
+              upgrades: { ...u.upgrades, inkRadiusBoost: u.upgrades.inkRadiusBoost + 1 },
+            };
+          if (type === 'wind')
+            return { ...u, upgrades: { ...u.upgrades, windResistance: true } };
+        }
+        return u;
+      })
+    );
+
+    sounds.playVictory();
+    showToast('ارتقای رزمی با موفقیت اعمال گردید! ⚡', '🛡️');
+    setUpgradingUnit(null);
   };
 
-  const handleSendChat = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!chatInput.trim() || !peerSessionRef.current) return;
-    const text = chatInput.trim();
-    peerSessionRef.current.send({ type: 'CHAT', payload: { text } });
-    setChatMessages((prev) => [...prev, { sender: 'من', text }]);
-    setChatInput('');
-  };
-
-  const downloadSingleFileHtml = () => {
-    const link = document.createElement('a');
-    link.href = '/paper-war-advanced.html';
-    link.download = 'paper-war-advanced-standalone.html';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const currentCoins = currentPlayer === 1 ? p1Coins : p2Coins;
-  const aliveUnitsOfCurrentPlayer = units.filter((u) => u.player === currentPlayer && !u.isDestroyed);
+  const p1AliveUnits = units.filter((u) => u.player === 1 && !u.isDestroyed);
+  const p2AliveUnits = units.filter((u) => u.player === 2 && !u.isDestroyed);
+  const p1Factories = p1AliveUnits.filter((u) => u.type === 'factory').length;
+  const p2Factories = p2AliveUnits.filter((u) => u.type === 'factory').length;
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-[#0f172a] flex flex-col items-center py-4 px-3 sm:px-6 font-['Vazirmatn'] selection:bg-blue-100">
+    <div className="min-h-screen bg-[#070b14] text-slate-100 flex flex-col items-center p-3 select-none font-['Vazirmatn',sans-serif]">
       {/* Top Header */}
-      <header className="w-full max-w-5xl flex flex-col sm:flex-row items-center justify-between gap-3 mb-2">
-        <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-2xl bg-white border border-slate-300 shadow-sm flex items-center justify-center text-2xl">
-            📄
-          </div>
-          <div>
-            <h1 className="text-xl sm:text-2xl font-black text-slate-800 flex items-center gap-2">
-              جنگ کاغذی پیشرفته
-              <span className="text-xs bg-blue-100 text-blue-800 px-2.5 py-0.5 rounded-full font-bold border border-blue-200">
-                کاغذ سفید و سیستم ارتقا
-              </span>
-            </h1>
-            <p className="text-xs text-slate-500 font-medium">
-              بوم سفید تمیز، جان (HP)، اسلایدر ابعاد، باد تصادفی و پاداش ۱/۳ غنائم
-            </p>
-          </div>
+      <header className="w-full max-w-[1220px] bg-slate-900/85 backdrop-blur-md border border-slate-800 rounded-2xl px-5 py-3 mb-2 flex flex-wrap justify-between items-center shadow-lg gap-2">
+        <div>
+          <h1 className="text-lg font-black tracking-tight text-white flex items-center gap-2">
+            <span>⚔️ جنگ کاغذی تاکتیکی HD</span>
+            <span className="text-[11px] font-bold bg-cyan-950 text-cyan-400 border border-cyan-800/80 px-2.5 py-0.5 rounded-full">
+              Dark Tactical
+            </span>
+          </h1>
+          <p className="text-xs text-slate-400 font-medium">
+            میدان نبرد مدرن، خط تای متغیر، سنگر بتنی محافظ و تقویت نیروها حین نبرد
+          </p>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap justify-end">
+        <div className="flex items-center gap-2">
           <button
-            onClick={handleToggleSound}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-300 text-xs font-bold text-slate-700 shadow-sm transition"
+            onClick={() => {
+              const muted = sounds.toggleMute();
+              setIsMuted(muted);
+            }}
+            className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 border border-slate-700 flex items-center gap-1.5 transition"
           >
-            {isMuted ? <VolumeX className="w-4 h-4 text-red-500" /> : <Volume2 className="w-4 h-4 text-emerald-600" />}
-            <span>{isMuted ? 'صامت' : 'صدا'}</span>
+            {isMuted ? <VolumeX size={15} /> : <Volume2 size={15} />}
+            <span>{isMuted ? 'صدا: خاموش' : 'صدا: روشن'}</span>
           </button>
 
           <button
-            onClick={() => setIsHelpModalOpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-300 text-xs font-bold text-slate-700 shadow-sm transition"
+            onClick={() => setIsHelpOpen(true)}
+            className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 border border-slate-700 flex items-center gap-1.5 transition"
           >
-            <HelpCircle className="w-4 h-4 text-blue-600" />
-            <span>راهنمای بازی</span>
-          </button>
-
-          <button
-            onClick={downloadSingleFileHtml}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 border border-blue-300 text-xs font-bold text-blue-900 shadow-sm transition"
-            title="دانلود نسخه تک‌فایلی مستقل HTML بدون نیاز به سرور"
-          >
-            <Download className="w-4 h-4 text-blue-700" />
-            <span>دانلود نسخه تک‌فایلی (HTML)</span>
+            <HelpCircle size={15} />
+            <span>راهنمای نبرد</span>
           </button>
         </div>
       </header>
 
-      {/* Main Configuration & Slider Bar */}
-      <div className="w-full max-w-5xl bg-white rounded-2xl p-2.5 sm:p-3 border border-slate-200 shadow-sm mb-3 flex flex-wrap items-center justify-between gap-3">
-        {/* Game Mode */}
-        <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
-          <button
-            onClick={() => handleSelectMode('local')}
-            className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-              mode === 'local' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-white'
-            }`}
-          >
-            <Users className="w-3.5 h-3.5" />
-            <span>دونفره (Pass & Play)</span>
-          </button>
-
-          <button
-            onClick={() => handleSelectMode('ai')}
-            className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-              mode === 'ai' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-white'
-            }`}
-          >
-            <Bot className="w-3.5 h-3.5" />
-            <span>بازی با کامپیوتر</span>
-          </button>
-
-          <button
-            onClick={() => handleSelectMode('online')}
-            className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-              mode === 'online' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:bg-white'
-            }`}
-          >
-            <Globe className="w-3.5 h-3.5" />
-            <span>آنلاین PeerJS</span>
-          </button>
-        </div>
-
-        {/* Board Dimension & Scale Sliders */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded-lg border border-slate-200 text-xs">
-            <span className="text-slate-500 font-semibold">ابعاد کاغذ:</span>
-            <select
-              value={boardPreset}
-              onChange={(e) => setBoardPreset(e.target.value as BoardSizePreset)}
-              className="bg-transparent font-bold text-slate-800 outline-none cursor-pointer"
-            >
-              <option value="standard">استاندارد (۸۸۰×۵۰۰)</option>
-              <option value="wide">عریض (۱۰۴۰×۵۲۰)</option>
-              <option value="custom">سفارشی با اسلایدر</option>
-            </select>
-          </div>
-
-          {boardPreset === 'custom' && (
-            <div className="flex items-center gap-1.5 bg-slate-50 px-2 py-1 rounded-lg border border-slate-200 text-xs">
-              <span className="text-slate-500 font-semibold">عرض: {customWidth}px</span>
-              <input
-                type="range"
-                min="740"
-                max="1120"
-                step="20"
-                value={customWidth}
-                onChange={(e) => setCustomWidth(Number(e.target.value))}
-                className="w-20 cursor-pointer accent-blue-600"
-              />
-            </div>
-          )}
-
-          {/* Unit Scale Slider */}
-          <div className="flex items-center gap-1.5 bg-slate-50 px-2 py-1 rounded-lg border border-slate-200 text-xs">
-            <Sliders className="w-3 h-3 text-slate-500" />
-            <span className="text-slate-500 font-semibold">مقیاس ادوات: {Math.round(unitScale * 100)}%</span>
-            <input
-              type="range"
-              min="0.75"
-              max="1.45"
-              step="0.05"
-              value={unitScale}
-              onChange={(e) => setUnitScale(Number(e.target.value))}
-              className="w-20 cursor-pointer accent-blue-600"
-            />
-          </div>
-
-          {/* Terrain Select */}
-          <div className="flex items-center gap-1 bg-slate-50 px-2 py-1 rounded-lg border border-slate-200 text-xs">
-            <span className="text-slate-500 font-semibold">زمین:</span>
-            <select
-              value={terrain}
-              onChange={(e) => {
-                setTerrain(e.target.value as TerrainType);
-                resetGame(mode, e.target.value as TerrainType);
-              }}
-              className="bg-transparent font-bold text-slate-800 outline-none cursor-pointer"
-            >
-              <option value="plain">📄 سفید ساده</option>
-              <option value="river">🌊 پهنه آبی پایین (قایق)</option>
-              <option value="obstacles">⛰️ سنگرهای بتنی</option>
-            </select>
-          </div>
-
-          {/* Wind Toggle */}
-          <button
-            onClick={() => setWindActive(!windActive)}
-            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold border transition ${
-              windActive ? 'bg-sky-50 border-sky-300 text-sky-800' : 'bg-slate-50 border-slate-200 text-slate-500'
-            }`}
-          >
-            <WindIcon className="w-3.5 h-3.5 text-sky-600" />
-            <span>{windActive ? 'باد فعال' : 'بدون باد'}</span>
-          </button>
-
-          {mode === 'local' && (
+      {/* Control Bar: Mode, Budget, Map, Fold Line */}
+      <div className="w-full max-w-[1220px] flex flex-col gap-2 mb-2">
+        <div className="bg-slate-900/80 backdrop-blur-md border border-slate-800/80 rounded-xl px-4 py-2 flex flex-wrap justify-between items-center gap-3 text-xs">
+          {/* Mode switch */}
+          <div className="flex items-center gap-1.5">
             <button
-              onClick={() => setHideOpponentUnits(!hideOpponentUnits)}
-              className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold border transition ${
-                hideOpponentUnits
-                  ? 'bg-amber-50 border-amber-300 text-amber-800'
-                  : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-white'
+              onClick={() => {
+                setMode('local');
+                resetGame();
+              }}
+              className={`px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5 transition ${
+                mode === 'local'
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : 'bg-slate-800/70 text-slate-300 hover:bg-slate-700'
               }`}
             >
-              {hideOpponentUnits ? <EyeOff className="w-3.5 h-3.5 text-amber-700" /> : <Eye className="w-3.5 h-3.5" />}
-              <span>{hideOpponentUnits ? 'مخفی' : 'پوشش'}</span>
+              <Users size={14} /> <span>دو نفره (یک سیستم)</span>
             </button>
-          )}
-
-          <button
-            onClick={() => resetGame()}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 text-xs font-bold text-slate-600"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>از نو</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Deployment Shop Bar */}
-      {phase === 'deployment' && (
-        <div className="w-full max-w-5xl bg-white border border-slate-200 rounded-2xl p-3 shadow-sm mb-3">
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-2.5">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-black text-slate-800">
-                🛒 خرید ادوات (نوبت {currentPlayer === 1 ? 'بازیکن ۱ 🔵' : 'بازیکن ۲ 🔴'})
-              </span>
-              <div className="flex items-center gap-1 bg-amber-50 border border-amber-300 text-amber-900 px-3 py-0.5 rounded-full text-xs font-black">
-                <Coins className="w-3.5 h-3.5 text-amber-600" />
-                <span>بودجه: {currentCoins} سکه</span>
-              </div>
-              <span className="text-xs text-slate-500 mr-2">
-                (نکته: برای ارتقا می‌توانید روی نیروهای چیده شده کلیک کنید!)
-              </span>
-            </div>
 
             <button
-              onClick={handleFinishDeployment}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-1.5 rounded-xl text-xs transition shadow-sm"
+              onClick={() => {
+                setMode('ai');
+                resetGame();
+              }}
+              className={`px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5 transition ${
+                mode === 'ai'
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : 'bg-slate-800/70 text-slate-300 hover:bg-slate-700'
+              }`}
             >
-              تکمیل چیدمان و شروع نبرد ⚔️
+              <Bot size={14} /> <span>نبرد هوش مصنوعی</span>
+            </button>
+
+            <button
+              onClick={openOnlineModal}
+              className={`px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5 transition ${
+                mode === 'online'
+                  ? 'bg-purple-600 text-white shadow-md'
+                  : 'bg-slate-800/70 text-slate-300 hover:bg-slate-700'
+              }`}
+            >
+              <Globe size={14} /> <span>آنلاین P2P</span>
             </button>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {(Object.keys(UNIT_SPECS) as UnitType[]).map((type) => {
-              const spec = UNIT_SPECS[type];
-              const isSelected = selectedUnitToBuy === type;
-              const canAfford = currentCoins >= spec.cost;
-              const isBoatDisabled = type === 'boat' && terrain !== 'river';
-
-              return (
-                <button
-                  key={type}
-                  disabled={!canAfford || isBoatDisabled}
-                  onClick={() => setSelectedUnitToBuy(type)}
-                  className={`p-2.5 rounded-xl border text-right transition flex flex-col justify-between ${
-                    isSelected
-                      ? 'border-blue-500 bg-blue-50/70 shadow-sm ring-2 ring-blue-300'
-                      : canAfford && !isBoatDisabled
-                      ? 'border-slate-200 bg-white hover:border-slate-300'
-                      : 'border-slate-100 bg-slate-50 opacity-50 cursor-not-allowed'
-                  }`}
-                >
-                  <div className="flex items-center justify-between w-full mb-1">
-                    <span className="text-xl">{spec.icon}</span>
-                    <span className="text-xs font-black text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
-                      {spec.cost} سکه
-                    </span>
-                  </div>
-                  <div>
-                    <div className="font-bold text-xs text-slate-800 flex items-center justify-between">
-                      <span>{spec.name}</span>
-                      <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
-                        جان: {spec.baseHp}
-                      </span>
-                    </div>
-                    <div className="text-[11px] text-slate-500 leading-tight mt-0.5">{spec.description}</div>
-                  </div>
-                  <div className="text-[10px] text-emerald-700 font-semibold mt-1">
-                    پاداش انهدام: +{spec.bounty} سکه (۱/۳)
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Battle Firing Bar */}
-      {phase === 'battle' && (
-        <div className="w-full max-w-5xl bg-white border border-slate-200 rounded-2xl p-2.5 shadow-sm mb-3 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs font-bold text-slate-700 flex items-center gap-1">
-              <Crosshair className="w-4 h-4 text-blue-600" />
-              <span>انتخاب ادوات شلیک:</span>
-            </span>
-
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {aliveUnitsOfCurrentPlayer.map((unit, idx) => {
-                const spec = UNIT_SPECS[unit.type];
-                const isSelected = unit.id === selectedFiringUnitId;
-                return (
-                  <button
-                    key={unit.id}
-                    onClick={() => setSelectedFiringUnitId(unit.id)}
-                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border transition ${
-                      isSelected
-                        ? 'bg-amber-100 border-amber-400 text-amber-900 shadow-sm ring-1 ring-amber-300'
-                        : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-white'
-                    }`}
-                  >
-                    <span>{spec.icon}</span>
-                    <span>
-                      {spec.name} #{idx + 1}
-                    </span>
-                    <span className="text-[10px] text-emerald-700 bg-emerald-50 px-1 rounded">
-                      HP: {unit.hp}/{unit.maxHp}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3 text-xs font-bold">
-            <div className="flex items-center gap-1 text-blue-700">
-              <span>کیف پول ب۱:</span>
-              <span className="font-mono bg-blue-50 px-2 py-0.5 rounded border border-blue-200">{p1Coins} 🪙</span>
-            </div>
-            <div className="flex items-center gap-1 text-red-700">
-              <span>کیف پول ب۲:</span>
-              <span className="font-mono bg-red-50 px-2 py-0.5 rounded border border-red-200">{p2Coins} 🪙</span>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Canvas Board Component */}
-      <NotebookBoard
-        phase={phase}
-        currentPlayer={currentPlayer}
-        myPlayerId={mode === 'online' ? myPlayerId : currentPlayer}
-        terrain={terrain}
-        units={units}
-        shots={shots}
-        unitScale={unitScale}
-        selectedUnitToBuy={selectedUnitToBuy}
-        selectedFiringUnitId={selectedFiringUnitId}
-        wind={wind}
-        onPlaceUnit={handlePlaceUnit}
-        onShoot={handleShoot}
-        onSelectUnitForUpgrade={(unit) => setUpgradingUnit(unit)}
-        onSelectFiringUnit={(id) => setSelectedFiringUnitId(id)}
-        showMirrorHint={showMirrorHint}
-        hideOpponentUnits={hideOpponentUnits}
-        isFoldAnimating={isFoldAnimating}
-        foldingPlayer={foldingPlayer}
-        lastShotOutcome={lastShotOutcome}
-        targetDimensions={dimensions}
-      />
-
-      {/* Unit Upgrades Modal Drawer */}
-      {upgradingUnit && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-2xl max-w-sm w-full p-5 shadow-2xl relative">
-            <div className="flex items-center justify-between border-b pb-2 mb-3">
-              <div className="flex items-center gap-2">
-                <span className="text-2xl">{UNIT_SPECS[upgradingUnit.type].icon}</span>
-                <div>
-                  <h3 className="font-black text-sm text-slate-800">
-                    ارتقای {UNIT_SPECS[upgradingUnit.type].name}
-                  </h3>
-                  <span className="text-xs text-slate-500">
-                    جان فعلی: {upgradingUnit.hp} / {upgradingUnit.maxHp}
-                  </span>
-                </div>
-              </div>
-              <button
-                onClick={() => setUpgradingUnit(null)}
-                className="text-slate-400 hover:text-slate-600 font-bold text-sm"
+          {/* Setup controls */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-1.5">
+              <span className="text-slate-400 font-bold">💰 بودجه:</span>
+              <select
+                value={startingBudget}
+                disabled={phase === 'battle'}
+                onChange={(e) => {
+                  setStartingBudget(Number(e.target.value));
+                  setP1Coins(Number(e.target.value));
+                  setP2Coins(Number(e.target.value));
+                }}
+                className="bg-slate-800 text-slate-200 border border-slate-700 rounded-lg px-2 py-1 font-bold outline-none cursor-pointer"
               >
-                ✕
+                <option value={500}>۵۰۰ 🪙 (تاکتیکی)</option>
+                <option value={1000}>۱۰۰۰ 🪙 (استاندارد)</option>
+                <option value={2000}>۲۰۰۰ 🪙 (لشکرکشی)</option>
+              </select>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <span className="text-slate-400 font-bold">🗺️ نقشه:</span>
+              <select
+                value={terrain}
+                disabled={phase === 'battle'}
+                onChange={(e) => {
+                  setTerrain(e.target.value as TerrainType);
+                  resetGame();
+                }}
+                className="bg-slate-800 text-slate-200 border border-slate-700 rounded-lg px-2 py-1 font-bold outline-none cursor-pointer"
+              >
+                <option value="plain">⛰️ زمین ساده تاکتیکی</option>
+                <option value="river">🌊 پهنه ساحلی و رودخانه</option>
+              </select>
+            </div>
+
+            {/* Dynamic Fold Toggle */}
+            <div className="flex items-center gap-1.5 bg-slate-800/60 border border-slate-700 px-2.5 py-1 rounded-lg">
+              <span className="text-slate-400 font-bold">📐 خط تا:</span>
+              <button
+                onClick={() =>
+                  setFoldConfig((prev) => ({
+                    ...prev,
+                    dynamicEnabled: !prev.dynamicEnabled,
+                    currentMode: !prev.dynamicEnabled ? prev.currentMode : 'center',
+                  }))
+                }
+                className={`px-2 py-0.5 rounded text-[11px] font-black transition ${
+                  foldConfig.dynamicEnabled
+                    ? 'bg-purple-600 text-white'
+                    : 'bg-slate-700 text-slate-300'
+                }`}
+              >
+                {foldConfig.dynamicEnabled ? 'پویا (متغیر)' : 'قفل در مرکز'}
               </button>
             </div>
 
-            <div className="space-y-2.5 mb-4">
-              {/* Extra HP */}
-              <div className="flex items-center justify-between p-2.5 rounded-xl border border-slate-200 bg-slate-50">
-                <div className="flex items-center gap-2">
-                  <Heart className="w-4 h-4 text-red-500" />
-                  <div>
-                    <div className="text-xs font-bold text-slate-800">افزایش جان (+۱ HP)</div>
-                    <div className="text-[10px] text-slate-500">مقاومت بیشتر در برابر گلوله‌ها</div>
+            <button
+              onClick={resetGame}
+              className="p-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-300 border border-slate-700 transition"
+              title="شروع مجدد بازی"
+            >
+              <RotateCcw size={15} />
+            </button>
+          </div>
+        </div>
+
+        {/* Board Width Slider & Wind Status */}
+        <div className="bg-slate-900/60 backdrop-blur-md border border-slate-800/60 rounded-xl px-4 py-1.5 flex flex-wrap justify-between items-center text-xs text-slate-400 gap-3">
+          <div className="flex items-center gap-2">
+            <span className="font-bold flex items-center gap-1">
+              <Maximize2 size={13} /> اسلایدر ابعاد میدان نبرد:
+            </span>
+            <input
+              type="range"
+              min="760"
+              max="1180"
+              step="30"
+              value={boardWidth}
+              onChange={(e) => setBoardWidth(Number(e.target.value))}
+              className="w-28 accent-cyan-500 cursor-pointer"
+            />
+            <span className="text-cyan-400 font-black">
+              {targetDimensions.width} × {targetDimensions.height} px
+            </span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5">
+              <span>مقیاس ادوات:</span>
+              <input
+                type="range"
+                min="0.8"
+                max="1.3"
+                step="0.05"
+                value={unitScale}
+                onChange={(e) => setUnitScale(Number(e.target.value))}
+                className="w-16 accent-blue-500"
+              />
+            </div>
+
+            <button
+              onClick={() => {
+                setWindActive(!windActive);
+                randomizeWind();
+              }}
+              className={`px-2 py-0.5 rounded font-bold border transition ${
+                windActive
+                  ? 'bg-cyan-950/80 border-cyan-700 text-cyan-300'
+                  : 'bg-slate-800 border-slate-700 text-slate-400'
+              }`}
+            >
+              💨 باد: {windActive ? `${wind.speed} م/ث` : 'خاموش'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Status Row */}
+      <div className="w-full max-w-[1220px] grid grid-cols-1 md:grid-cols-3 items-center gap-2.5 mb-2">
+        {/* P1 Badge */}
+        <div
+          className={`p-3 rounded-xl border flex items-center justify-between transition-all ${
+            currentPlayer === 1
+              ? 'bg-cyan-950/60 border-cyan-500 shadow-[0_0_15px_rgba(0,210,255,0.25)] scale-[1.01]'
+              : 'bg-slate-900/60 border-slate-800 opacity-80'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-cyan-400 font-black text-sm">🔵 بازیکن ۱</span>
+            {p1Factories > 0 && (
+              <span className="text-[10px] bg-emerald-950 text-emerald-400 border border-emerald-800 px-1.5 py-0.5 rounded font-black">
+                +{p1Factories * 50}🪙/نوبت
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-3 text-xs font-bold">
+            <span className="text-amber-400 bg-amber-950/60 border border-amber-800 px-2 py-0.5 rounded">
+              {p1Coins} 🪙
+            </span>
+            <span className="text-slate-400">{p1AliveUnits.length} نیرو</span>
+          </div>
+        </div>
+
+        {/* Center Indicator */}
+        <div className="bg-slate-900/90 border border-slate-800 rounded-xl px-4 py-2 flex items-center justify-center gap-4 text-xs font-bold shadow-md">
+          <div className="flex items-center gap-1.5 text-purple-400">
+            <Compass size={14} />
+            <span>
+              {foldConfig.currentMode === 'slight_right'
+                ? 'مورب راست (+۹°)'
+                : foldConfig.currentMode === 'slight_left'
+                ? 'مورب چپ (-۹°)'
+                : 'وسط عمودی (۰°)'}
+            </span>
+          </div>
+
+          <div className="h-3 w-px bg-slate-700" />
+
+          <div className="flex items-center gap-1.5 text-cyan-400">
+            <WindIcon size={14} />
+            <span>{wind.active ? `${wind.speed} م/ث` : 'بدون باد'}</span>
+          </div>
+        </div>
+
+        {/* P2 Badge */}
+        <div
+          className={`p-3 rounded-xl border flex items-center justify-between transition-all ${
+            currentPlayer === 2
+              ? 'bg-rose-950/60 border-rose-500 shadow-[0_0_15px_rgba(255,59,87,0.25)] scale-[1.01]'
+              : 'bg-slate-900/60 border-slate-800 opacity-80'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-rose-400 font-black text-sm">🔴 بازیکن ۲</span>
+            {p2Factories > 0 && (
+              <span className="text-[10px] bg-emerald-950 text-emerald-400 border border-emerald-800 px-1.5 py-0.5 rounded font-black">
+                +{p2Factories * 50}🪙/نوبت
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-3 text-xs font-bold">
+            <span className="text-amber-400 bg-amber-950/60 border border-amber-800 px-2 py-0.5 rounded">
+              {p2Coins} 🪙
+            </span>
+            <span className="text-slate-400">{p2AliveUnits.length} نیرو</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Mid-Battle Reinforcements Shop & Deployment Arsenal */}
+      <div className="w-full max-w-[1220px] bg-slate-900/90 border border-slate-800 rounded-2xl p-3 mb-2 shadow-xl">
+        <div className="flex justify-between items-center mb-2 px-1">
+          <div className="text-xs font-black text-slate-200 flex items-center gap-2">
+            <span>🛒 انبار تسلیحات و تدارکات</span>
+            <span className="text-[11px] font-bold text-slate-400">
+              (خرید و استقرار نیروی کمکی در نوبت خودتان حتی حین نبرد فعال است)
+            </span>
+          </div>
+
+          {phase === 'deployment' && (
+            <button
+              onClick={finishDeployment}
+              className="px-4 py-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-xs font-black text-white shadow-lg shadow-blue-500/20 transition"
+            >
+              تکمیل چینش و آغاز نبرد ⚔️
+            </button>
+          )}
+        </div>
+
+        {/* Shop Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
+          {(['soldier', 'tank', 'plane', 'boat', 'bunker', 'factory'] as UnitType[]).map((type) => {
+            const spec = UNIT_SPECS[type];
+            const isSelected = selectedUnitToBuy === type;
+            const currentCoins = currentPlayer === 1 ? p1Coins : p2Coins;
+            const canAfford = currentCoins >= spec.cost;
+
+            return (
+              <div
+                key={type}
+                onClick={() => {
+                  if (canAfford) {
+                    setSelectedUnitToBuy(isSelected ? null : type);
+                  } else {
+                    showToast('سکه کافی برای این نیرو ندارید!', '💰');
+                  }
+                }}
+                className={`p-2.5 rounded-xl border cursor-pointer transition flex flex-col justify-between text-right ${
+                  isSelected
+                    ? 'bg-blue-950/80 border-cyan-400 shadow-md ring-1 ring-cyan-400'
+                    : canAfford
+                    ? 'bg-slate-800/60 hover:bg-slate-800 border-slate-700'
+                    : 'bg-slate-900/40 border-slate-800/80 opacity-50 cursor-not-allowed'
+                }`}
+              >
+                <div>
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-xs font-black text-white flex items-center gap-1">
+                      <span>{spec.icon}</span> <span>{spec.name}</span>
+                    </span>
+                    <span className="text-[11px] font-black text-amber-400 bg-amber-950/50 px-1.5 py-0.2 rounded border border-amber-800/80">
+                      {spec.cost} 🪙
+                    </span>
                   </div>
+                  <p className="text-[10px] text-slate-400 line-clamp-2 leading-relaxed">
+                    {spec.description}
+                  </p>
+                </div>
+
+                <div className="mt-2 pt-1 border-t border-slate-700/60 flex justify-between items-center text-[10px] font-bold">
+                  <span className="text-emerald-400">HP: {spec.baseHp}</span>
+                  {isSelected && <span className="text-cyan-300 font-black">آماده استقرار 📍</span>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Firing Bar (In Battle Phase) */}
+      {phase === 'battle' && (
+        <div className="w-full max-w-[1220px] bg-slate-900/90 border border-slate-800 rounded-2xl px-4 py-2.5 mb-2 flex flex-wrap justify-between items-center gap-3 shadow-lg">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-black text-slate-300 flex items-center gap-1.5">
+              <Crosshair size={14} className="text-amber-400" /> واحد شلیک‌کننده:
+            </span>
+
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {units
+                .filter(
+                  (u) =>
+                    u.player === currentPlayer && !u.isDestroyed && UNIT_SPECS[u.type].canShoot
+                )
+                .map((u, i) => {
+                  const spec = UNIT_SPECS[u.type];
+                  const isSelected = u.id === selectedFiringUnitId;
+                  const isReady = u.cooldownRemaining === 0;
+
+                  return (
+                    <button
+                      key={u.id}
+                      disabled={!isReady}
+                      onClick={() => setSelectedFiringUnitId(u.id)}
+                      className={`px-3 py-1 rounded-xl text-xs font-black border transition flex items-center gap-1.5 ${
+                        isSelected
+                          ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md ring-1 ring-amber-300'
+                          : isReady
+                          ? 'bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700'
+                          : 'bg-slate-900/40 text-slate-500 border-slate-800 cursor-not-allowed'
+                      }`}
+                    >
+                      <span>{spec.icon}</span>
+                      <span>
+                        {spec.name} #{i + 1} ({u.hp}❤️)
+                      </span>
+                      {!isReady && (
+                        <span className="text-[10px] text-amber-500 bg-amber-950 px-1 py-0.2 rounded">
+                          ⏳ استراحت
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+            </div>
+          </div>
+
+          <div className="text-[11px] font-bold text-cyan-400 bg-cyan-950/60 border border-cyan-800/80 px-3 py-1 rounded-lg">
+            🎯 روی نیمه زمین خودت کلیک کن تا تیر با زاویه خط تا شلیک بشه!
+          </div>
+        </div>
+      )}
+
+      {/* Main Tactical Canvas Board */}
+      <div className="w-full flex justify-center mb-2">
+        <NotebookBoard
+          phase={phase}
+          currentPlayer={currentPlayer}
+          myPlayerId={myPlayerId}
+          terrain={terrain}
+          units={units}
+          shots={shots}
+          unitScale={unitScale}
+          selectedUnitToBuy={selectedUnitToBuy}
+          selectedFiringUnitId={selectedFiringUnitId}
+          wind={wind}
+          foldConfig={foldConfig}
+          onPlaceUnit={handlePlaceUnit}
+          onShoot={handleShoot}
+          onSelectUnitForUpgrade={(u) => setUpgradingUnit(u)}
+          onSelectFiringUnit={(id) => setSelectedFiringUnitId(id)}
+          onShowToast={showToast}
+          isFoldAnimating={isFoldAnimating}
+          foldingPlayer={foldingPlayer}
+          targetDimensions={targetDimensions}
+        />
+      </div>
+
+      {/* Killcam Cinematic Popup */}
+      {killcam && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-md flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-900 border border-rose-500/80 rounded-2xl p-6 max-w-sm w-full text-center shadow-2xl shadow-rose-950/50 animate-in zoom-in-95 duration-200">
+            <span className="text-xs font-black tracking-widest text-rose-400 bg-rose-950 border border-rose-800 px-3 py-1 rounded-full uppercase">
+              CRITICAL HIT • شکار موفق
+            </span>
+
+            <div className="text-6xl my-4 animate-bounce">
+              {killcam.victimType === 'plane'
+                ? '💥✈️'
+                : killcam.victimType === 'tank'
+                ? '💥🛡️'
+                : killcam.victimType === 'bunker'
+                ? '💥🏰'
+                : killcam.victimType === 'factory'
+                ? '💥🏭'
+                : '💥🪖'}
+            </div>
+
+            <h3 className="text-xl font-black text-white mb-1">
+              انهدام کامل {UNIT_SPECS[killcam.victimType].name}!
+            </h3>
+
+            <p className="text-xs text-slate-400 mb-4 font-bold">
+              توسط {UNIT_SPECS[killcam.attackerType].name} بازیکن {killcam.attackerPlayer} • غنیمت: +
+              {killcam.bounty} 🪙
+            </p>
+
+            <button
+              onClick={() => setKillcam(null)}
+              className="w-full py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-black rounded-xl transition"
+            >
+              تایید و ادامه نبرد
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Winner Modal */}
+      {winner && (
+        <div className="fixed inset-0 bg-black/85 backdrop-blur-lg flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-900 border border-amber-500/80 rounded-3xl p-8 max-w-md w-full text-center shadow-2xl shadow-amber-950/50">
+            <div className="text-6xl mb-4">🏆</div>
+            <h2 className="text-2xl font-black text-white mb-2">
+              پیروزی مقتدرانه بازیکن {winner} {winner === 1 ? '🔵' : '🔴'}!
+            </h2>
+            <p className="text-xs text-slate-300 font-bold mb-6 leading-relaxed">
+              تمامی نیروهای تهاجمی حریف متلاشی شدند و بودجه‌ای برای استخدام نیروی جدید باقی نماند!
+            </p>
+            <button
+              onClick={resetGame}
+              className="w-full py-3 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 font-black text-sm rounded-xl shadow-lg transition"
+            >
+              شروع نبرد جدید ⚔️
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Upgrades Modal */}
+      {upgradingUnit && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl p-5 max-w-md w-full shadow-2xl">
+            <h3 className="text-base font-black text-white mb-1">
+              🛠️ ارتقای رزمی {UNIT_SPECS[upgradingUnit.type].name} (جان: {upgradingUnit.hp}/
+              {upgradingUnit.maxHp})
+            </h3>
+            <p className="text-xs text-slate-400 mb-4">
+              ارتقای قابلیت‌های این نیرو برای برتری در میدان نبرد:
+            </p>
+
+            <div className="flex flex-col gap-2 mb-4">
+              <div className="p-3 bg-slate-800/70 border border-slate-700 rounded-xl flex justify-between items-center">
+                <div>
+                  <h4 className="text-xs font-black text-white">❤️ زره تقویتی (+۱ جان)</h4>
+                  <p className="text-[10px] text-slate-400">مقاومت در برابر یک اصابت مستقیم اضافی</p>
                 </div>
                 <button
-                  onClick={() => handleUpgradeUnit('hp')}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1 rounded-lg text-xs"
+                  onClick={() => handleApplyUpgrade('hp')}
+                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-black rounded-lg transition"
                 >
                   ۱۲۰ 🪙
                 </button>
               </div>
 
-              {/* Ink Shrapnel Radius Boost */}
-              <div className="flex items-center justify-between p-2.5 rounded-xl border border-slate-200 bg-slate-50">
-                <div className="flex items-center gap-2">
-                  <Zap className="w-4 h-4 text-amber-500" />
-                  <div>
-                    <div className="text-xs font-bold text-slate-800">شعاع ترکش جوهر (+۲.۵px)</div>
-                    <div className="text-[10px] text-slate-500">افزایش محدوده لکه و تخریب</div>
-                  </div>
+              <div className="p-3 bg-slate-800/70 border border-slate-700 rounded-xl flex justify-between items-center">
+                <div>
+                  <h4 className="text-xs font-black text-white">⚡ افزایش شعاع ترکش (+۲.۵px)</h4>
+                  <p className="text-[10px] text-slate-400">گسترش محدوده انفجار هنگام برخورد</p>
                 </div>
                 <button
-                  onClick={() => handleUpgradeUnit('radius')}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1 rounded-lg text-xs"
+                  onClick={() => handleApplyUpgrade('radius')}
+                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-black rounded-lg transition"
                 >
                   ۹۰ 🪙
                 </button>
               </div>
 
-              {/* Wind Resistance */}
-              <div className="flex items-center justify-between p-2.5 rounded-xl border border-slate-200 bg-slate-50">
-                <div className="flex items-center gap-2">
-                  <WindIcon className="w-4 h-4 text-sky-500" />
-                  <div>
-                    <div className="text-xs font-bold text-slate-800">تثبیت شلیک (مقاومت باد ۵۰٪)</div>
-                    <div className="text-[10px] text-slate-500">کاهش انحراف شلیک در اثر باد</div>
-                  </div>
+              <div className="p-3 bg-slate-800/70 border border-slate-700 rounded-xl flex justify-between items-center">
+                <div>
+                  <h4 className="text-xs font-black text-white">💨 سیستم ناوبری پایدار (باد)</h4>
+                  <p className="text-[10px] text-slate-400">کاهش ۵۰ درصدی انحراف شلیک در اثر باد</p>
                 </div>
                 <button
+                  onClick={() => handleApplyUpgrade('wind')}
                   disabled={upgradingUnit.upgrades.windResistance}
-                  onClick={() => handleUpgradeUnit('wind')}
-                  className={`${
-                    upgradingUnit.upgrades.windResistance
-                      ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
-                      : 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                  } font-bold px-3 py-1 rounded-lg text-xs`}
+                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 text-white text-xs font-black rounded-lg transition"
                 >
-                  {upgradingUnit.upgrades.windResistance ? 'فعال شد' : '۱۰۰ 🪙'}
+                  {upgradingUnit.upgrades.windResistance ? 'فعال است' : '۱۰۰ 🪙'}
                 </button>
               </div>
             </div>
 
             <button
               onClick={() => setUpgradingUnit(null)}
-              className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2 rounded-xl text-xs transition"
+              className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-black rounded-xl transition"
             >
-              بستن
+              بستن پنجره
             </button>
           </div>
         </div>
       )}
 
-      {/* Online Modal */}
+      {/* Online PeerJS Modal */}
       {isOnlineModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-2xl max-w-md w-full p-6 shadow-2xl relative">
-            <h2 className="text-lg font-black text-slate-800 flex items-center gap-2 mb-2">
-              <Globe className="w-5 h-5 text-blue-600" />
-              <span>بازی آنلاین مستقیم (WebRTC P2P)</span>
-            </h2>
-            <p className="text-xs text-slate-500 mb-4 leading-relaxed">
-              اتصال مستقیم دو مرورگر بدون نیاز به سرور میانی با کتابخانه رایگان PeerJS.
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-md flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-900 border border-purple-500/60 rounded-2xl p-6 max-w-md w-full shadow-2xl">
+            <h3 className="text-base font-black text-white mb-2 flex items-center gap-2">
+              <Globe size={18} className="text-purple-400" /> نبرد آنلاین P2P با WebRTC
+            </h3>
+            <p className="text-xs text-slate-400 mb-4 font-bold">
+              اتصال بدون نیاز به سرور مرکزی با بالاترین سرعت و پینگ صفر:
             </p>
 
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 mb-3">
-              <div className="text-xs font-bold text-slate-700 mb-1">روش ۱: ساخت اتاق جدید (شما بازیکن ۱)</div>
-              {!roomCode ? (
-                <button
-                  onClick={handleHostRoom}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-xl text-xs transition shadow-sm"
-                >
-                  ایجاد اتاق اختصاصی 🎲
-                </button>
-              ) : (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between bg-white border border-blue-200 p-2 rounded-lg">
-                    <span className="font-mono text-base font-bold text-blue-800">{roomCode}</span>
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(roomCode);
-                        setCopiedCode(true);
-                        setTimeout(() => setCopiedCode(false), 2000);
-                      }}
-                      className="flex items-center gap-1 bg-blue-50 text-blue-700 px-2 py-1 rounded text-xs font-bold"
-                    >
-                      {copiedCode ? <Check className="w-3.5 h-3.5 text-green-600" /> : <Copy className="w-3.5 h-3.5" />}
-                      <span>{copiedCode ? 'کپی شد' : 'کپی'}</span>
-                    </button>
-                  </div>
-                  <div className="text-[11px] text-amber-700 font-semibold text-center animate-pulse">
-                    منتظر ورود حریف به این اتاق...
-                  </div>
+            <div className="bg-purple-950/40 border border-purple-800/80 p-3 rounded-xl mb-3">
+              <span className="text-xs font-black text-purple-300 block mb-2">
+                میزبان بازی (بازیکن ۱ 🔵):
+              </span>
+              <button
+                onClick={createOnlineRoom}
+                className="w-full py-2 bg-purple-600 hover:bg-purple-500 text-white text-xs font-black rounded-lg transition"
+              >
+                ساخت اتاق نبرد 🎲
+              </button>
+              {roomCode && (
+                <div className="mt-2 text-center text-sm font-black text-purple-300 bg-purple-900/60 p-2 rounded-lg border border-purple-700 user-select-all">
+                  کد اتاق شما: {roomCode}
                 </div>
               )}
             </div>
 
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 mb-3">
-              <div className="text-xs font-bold text-slate-700 mb-1">روش ۲: ورود به اتاق دوست (شما بازیکن ۲)</div>
+            <div className="bg-slate-800/60 border border-slate-700 p-3 rounded-xl mb-3">
+              <span className="text-xs font-black text-slate-300 block mb-2">
+                پیوستن به دوست (بازیکن ۲ 🔴):
+              </span>
               <div className="flex gap-2">
                 <input
                   type="text"
                   placeholder="کد اتاق دوستتان..."
                   value={inputJoinCode}
                   onChange={(e) => setInputJoinCode(e.target.value)}
-                  className="flex-1 bg-white border border-slate-300 rounded-xl px-3 py-1.5 text-xs font-mono outline-none focus:border-blue-500"
+                  className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white outline-none"
                 />
                 <button
-                  onClick={handleJoinRoom}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-1.5 rounded-xl text-xs transition shadow-sm"
+                  onClick={joinOnlineRoom}
+                  className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-black rounded-lg transition"
                 >
-                  اتصال
+                  ورود 🔗
                 </button>
               </div>
             </div>
 
             {peerStatus && (
-              <div className="text-xs font-bold text-slate-600 bg-slate-100 p-2 rounded-lg text-center mb-3">
-                {peerStatus}
-              </div>
+              <div className="text-xs text-amber-400 text-center font-bold mb-3">{peerStatus}</div>
             )}
 
             <button
               onClick={() => setIsOnlineModalOpen(false)}
-              className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2 rounded-xl text-xs transition"
+              className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-black rounded-xl transition"
             >
-              بستن
+              انصراف و بستن
             </button>
           </div>
         </div>
       )}
 
-      {/* Rules Modal */}
-      {isHelpModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-2xl max-w-lg w-full p-6 shadow-2xl relative max-h-[90vh] overflow-y-auto">
-            <h2 className="text-lg font-black text-slate-800 flex items-center gap-2 mb-3">
-              <span>📖 قوانین بازی جنگ کاغذی پیشرفته</span>
-            </h2>
+      {/* Instructions / Help Modal */}
+      {isHelpOpen && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-md flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-lg w-full shadow-2xl max-h-[85vh] overflow-y-auto">
+            <h3 className="text-base font-black text-white mb-3">
+              📖 راهنمای نبرد استراتژیک و قوانین تاکتیکی
+            </h3>
 
-            <div className="space-y-3 text-xs leading-relaxed text-slate-600">
-              <div className="bg-blue-50 border border-blue-200 p-3 rounded-xl text-blue-900">
-                <h4 className="font-bold mb-1">کاغذ سفید و سیستم سلامت (HP):</h4>
-                <p>
-                  هر بازیکن در ابتدا ۱۰۰۰ سکه بودجه دارد. ادوات دارای جان (HP) هستند؛ سرباز ۱ جان، تانک ۲ جان، قایق ۲ جان و هواپیما ۲ جان دارند.
-                </p>
+            <div className="text-xs text-slate-300 space-y-3 leading-relaxed">
+              <div className="p-2.5 bg-slate-800/60 border border-slate-700 rounded-xl">
+                <h4 className="font-black text-cyan-400 mb-1">🎯 ماتریس هدف‌گیری رزمی:</h4>
+                <ul className="list-disc list-inside space-y-1 text-slate-300 text-[11px]">
+                  <li>
+                    <strong>سرباز:</strong> تفنگ ضدهوایی پیاده‌نظام؛ توانایی شلیک به همه اهداف
+                    (زمینی، دریایی، هوایی).
+                  </li>
+                  <li>
+                    <strong>تانک:</strong> شلیک به همه اهداف به جز هواپیما (تانک زاویه شلیک عمودی
+                    ندارد).
+                  </li>
+                  <li>
+                    <strong>هواپیما:</strong> بمباران تانک، قایق، سنگر و کارخانه (پیاده‌نظام پراکنده
+                    از بمباران مصون است).
+                  </li>
+                  <li>
+                    <strong>قایق جنگی:</strong> شلیک به ادوات دریایی، ساحلی، تانک و سرباز (به
+                    هواپیما نمی‌زند).
+                  </li>
+                </ul>
               </div>
 
-              <div>
-                <h4 className="font-bold text-slate-800 mb-1">سیستم ارتقا (Upgrades):</h4>
-                <p>
-                  با کلیک روی ادوات مستقر در زمین خودی، می‌توانید جان آن‌ها را افزایش دهید (+1 HP)، شعاع ترکش جوهر را بزرگتر کنید یا مقاومت در برابر انحراف باد بخرید!
-                </p>
+              <div className="p-2.5 bg-slate-800/60 border border-slate-700 rounded-xl">
+                <h4 className="font-black text-amber-400 mb-1">🏰 سنگر بتنی و کارخانه:</h4>
+                <ul className="list-disc list-inside space-y-1 text-slate-300 text-[11px]">
+                  <li>
+                    <strong>سنگر بتنی (۸۰🪙، ۴ جان):</strong> دارای هاله محافظتی؛ هر نیروی خودی درون
+                    هاله را محافظت کرده و آسیب گلوله را تا قبل از انهدام کامل سنگر به خود جذب
+                    می‌کند.
+                  </li>
+                  <li>
+                    <strong>کارخانه (۳۵۰🪙، ۳ جان):</strong> در شروع هر نوبت ۵۰ سکه درآمد پایدار
+                    تولید می‌کند.
+                  </li>
+                  <li>
+                    <strong>غنیمت نبرد:</strong> انهدام هر هدف ۱/۳ قیمت خرید اولیه آن را برمی‌گرداند.
+                  </li>
+                </ul>
               </div>
 
-              <div>
-                <h4 className="font-bold text-slate-800 mb-1">پاداش انهدام کامل (۱/۳ قیمت خرید):</h4>
-                <p>
-                  با صفر شدن جان هر یک از ادوات دشمن، دقیقاً یک‌سوم قیمت خرید اصلی آن به عنوان پاداش به حساب شما افزوده می‌شود.
+              <div className="p-2.5 bg-slate-800/60 border border-slate-700 rounded-xl">
+                <h4 className="font-black text-purple-400 mb-1">⏳ استراحت شلیک و نیروهای کمکی:</h4>
+                <p className="text-[11px]">
+                  هر واحد پس از شلیک ۱ نوبت استراحت می‌کند. شما می‌توانید در هر نوبت نبرد از فروشگاه
+                  نیروی کمکی جدید خریده و مستقر نمایید.
                 </p>
-              </div>
-
-              <div>
-                <h4 className="font-bold text-slate-800 mb-1">فرمول تا خوردن برگه و انحراف باد:</h4>
-                <div className="mt-1 font-mono text-[11px] bg-slate-100 p-2 rounded text-slate-800 text-center dir-ltr">
-                  Target_X = (Canvas_Width - Click_X) + Wind_X &nbsp;|&nbsp; Target_Y = Click_Y + Wind_Y
-                </div>
               </div>
             </div>
 
             <button
-              onClick={() => setIsHelpModalOpen(false)}
-              className="mt-4 w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-2 rounded-xl text-xs transition"
+              onClick={() => setIsHelpOpen(false)}
+              className="w-full mt-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-black rounded-xl transition"
             >
-              متوجه شدم، شروع بازی!
+              متوجه شدم، آماده نبردم!
             </button>
           </div>
         </div>
       )}
 
-      {/* Footer */}
-      <footer className="mt-3 text-center text-xs text-slate-400 font-medium">
-        شبیه‌سازی کامل و دقیق بازی نوستالژیک جنگ کاغذی و تا کردن برگه ✏️🇮🇷
-      </footer>
+      {/* Toast Notification */}
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900/95 text-white border border-slate-700 px-5 py-2.5 rounded-full text-xs font-black shadow-2xl flex items-center gap-2 z-50 animate-in fade-in slide-in-from-bottom-3 duration-200">
+          <span>{toast.icon}</span>
+          <span>{toast.msg}</span>
+        </div>
+      )}
     </div>
   );
 }

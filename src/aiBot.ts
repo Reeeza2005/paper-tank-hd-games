@@ -1,17 +1,25 @@
-import { Unit, Shot, AIDifficulty, TerrainType, UnitType, UNIT_SPECS, Wind } from './types';
-import { isPointInWater, isPointInObstacle } from './canvasUtils';
+import {
+  Unit,
+  Shot,
+  AIDifficulty,
+  TerrainType,
+  UnitType,
+  UNIT_SPECS,
+  Wind,
+  FoldLineMode,
+  validateCombatTarget,
+} from './types';
+import { isPointInWater, reflectAcrossFoldLine } from './canvasUtils';
 
-export function generateAISquad(terrain: TerrainType): Unit[] {
+export function generateAISquad(terrain: TerrainType, budget: number = 1000): Unit[] {
   const units: Unit[] = [];
-  let remainingBudget = 1000;
+  let remainingBudget = budget;
 
-  // AI purchases based on terrain
-  const desireList: UnitType[] = [];
-  if (terrain === 'river') {
-    desireList.push('plane', 'boat', 'tank', 'soldier');
-  } else {
-    desireList.push('plane', 'tank', 'tank', 'soldier');
-  }
+  // Strategic AI composition
+  const desireList: UnitType[] =
+    terrain === 'river'
+      ? ['plane', 'factory', 'bunker', 'tank', 'boat', 'soldier', 'tank']
+      : ['plane', 'factory', 'bunker', 'tank', 'tank', 'soldier', 'soldier'];
 
   for (const type of desireList) {
     const spec = UNIT_SPECS[type];
@@ -27,29 +35,24 @@ export function generateAISquad(terrain: TerrainType): Unit[] {
 
       if (type === 'boat') {
         if (terrain !== 'river') continue;
-        // Boat must be in water zone (bottom section yRatio >= 0.72)
-        yRatio = 0.74 + Math.random() * 0.20;
+        yRatio = 0.74 + Math.random() * 0.2;
         if (!isPointInWater(xRatio, yRatio)) continue;
       } else {
-        // Land/Air units should not be in the water if river map
         if (terrain === 'river' && isPointInWater(xRatio, yRatio)) {
           yRatio = 0.12 + Math.random() * 0.54; // Keep on land
         }
       }
 
-      // Avoid obstacles
-      if (terrain === 'obstacles' && isPointInObstacle(xRatio, yRatio)) continue;
-
-      // Avoid clumping
+      // Avoid clumping too close to existing units
       const tooClose = units.some((u) => {
         const dx = u.xRatio - xRatio;
         const dy = u.yRatio - yRatio;
-        return Math.sqrt(dx * dx + dy * dy) < 0.11;
+        return Math.sqrt(dx * dx + dy * dy) < 0.1;
       });
 
       if (!tooClose) {
         units.push({
-          id: `ai-unit-${units.length + 1}-${Date.now()}`,
+          id: `ai-unit-${units.length + 1}-${Date.now()}-${Math.random()}`,
           type,
           xRatio,
           yRatio,
@@ -58,6 +61,7 @@ export function generateAISquad(terrain: TerrainType): Unit[] {
           maxHp: spec.baseHp,
           isDestroyed: false,
           angle: (Math.random() - 0.5) * 0.3,
+          cooldownRemaining: 0,
           upgrades: { extraHp: 0, inkRadiusBoost: 0, windResistance: false },
         });
         remainingBudget -= spec.cost;
@@ -72,75 +76,82 @@ export function generateAISquad(terrain: TerrainType): Unit[] {
 export function computeAIShot(
   player1Units: Unit[],
   aiUnits: Unit[],
-  previousShots: Shot[],
+  _previousShots: Shot[],
   difficulty: AIDifficulty,
   canvasWidth: number,
   canvasHeight: number,
-  wind: Wind
-): { xRatio: number; yRatio: number; firingUnit: Unit } {
+  wind: Wind,
+  foldMode: FoldLineMode
+): { xRatio: number; yRatio: number; firingUnit: Unit } | null {
   const aliveP1 = player1Units.filter((u) => !u.isDestroyed);
-  const aliveAI = aiUnits.filter((u) => !u.isDestroyed);
+  const eligibleShooters = aiUnits.filter(
+    (u) => !u.isDestroyed && UNIT_SPECS[u.type].canShoot && u.cooldownRemaining === 0
+  );
 
-  const firingUnit = aliveAI[Math.floor(Math.random() * aliveAI.length)] || {
-    id: 'ai-default',
-    type: 'tank' as UnitType,
-    xRatio: 0.75,
-    yRatio: 0.5,
-    player: 2,
-    hp: 2,
-    maxHp: 2,
-    isDestroyed: false,
-    angle: 0,
-    upgrades: { extraHp: 0, inkRadiusBoost: 0, windResistance: false },
-  };
-
-  if (aliveP1.length === 0) {
-    return { xRatio: 0.75, yRatio: 0.5, firingUnit };
+  if (eligibleShooters.length === 0 || aliveP1.length === 0) {
+    return null;
   }
 
-  let jitter = 0.05;
-  const rand = Math.random();
+  // Pick a shooter that has at least one valid target in P1's army
+  let selectedShooter: Unit | null = null;
+  let validTargets: Unit[] = [];
 
+  for (const shooter of eligibleShooters) {
+    const targets = aliveP1.filter((t) => validateCombatTarget(shooter.type, t.type).allowed);
+    if (targets.length > 0) {
+      selectedShooter = shooter;
+      validTargets = targets;
+      break;
+    }
+  }
+
+  if (!selectedShooter || validTargets.length === 0) {
+    selectedShooter = eligibleShooters[0];
+    validTargets = aliveP1;
+  }
+
+  const target = validTargets[Math.floor(Math.random() * validTargets.length)];
+
+  // Calculate target position in pixels
+  let targetPixelX = target.xRatio * canvasWidth;
+  let targetPixelY = target.yRatio * canvasHeight;
+
+  // Add difficulty-based targeting jitter
+  let jitterPx = 30;
   if (difficulty === 'easy') {
-    if (rand < 0.65) {
-      return {
-        xRatio: 0.55 + Math.random() * 0.38,
-        yRatio: 0.12 + Math.random() * 0.76,
-        firingUnit,
-      };
-    }
-    jitter = 0.085;
+    jitterPx = 45;
   } else if (difficulty === 'medium') {
-    if (rand < 0.35) {
-      return {
-        xRatio: 0.55 + Math.random() * 0.38,
-        yRatio: 0.12 + Math.random() * 0.76,
-        firingUnit,
-      };
-    }
-    jitter = 0.045;
+    jitterPx = 22;
   } else {
-    // Hard: accurate aim
-    jitter = 0.016;
+    jitterPx = 8;
   }
 
-  const target = aliveP1[Math.floor(Math.random() * aliveP1.length)];
+  const jitterAng = Math.random() * Math.PI * 2;
+  const jitterDist = (Math.random() * 0.7 + 0.3) * jitterPx;
+  targetPixelX += Math.cos(jitterAng) * jitterDist;
+  targetPixelY += Math.sin(jitterAng) * jitterDist;
 
-  // Wind offset
-  const windOffsetRatioX = wind.active ? wind.xOffsetPx / canvasWidth : 0;
-  const windOffsetRatioY = wind.active ? wind.yOffsetPx / canvasHeight : 0;
+  // Wind compensation
+  if (wind.active) {
+    targetPixelX -= wind.xOffsetPx;
+    targetPixelY -= wind.yOffsetPx;
+  }
 
-  const idealX = 1 - target.xRatio + windOffsetRatioX;
-  const idealY = target.yRatio - windOffsetRatioY;
+  // Compute the click position on AI's side that reflects to the target point
+  const reflectedBack = reflectAcrossFoldLine(
+    targetPixelX,
+    targetPixelY,
+    canvasWidth,
+    canvasHeight,
+    foldMode
+  );
 
-  const angle = Math.random() * Math.PI * 2;
-  const dist = (Math.random() * 0.8 + 0.2) * jitter;
+  let shotXR = reflectedBack.rx / canvasWidth;
+  let shotYR = reflectedBack.ry / canvasHeight;
 
-  let shotX = idealX + Math.cos(angle) * dist;
-  let shotY = idealY + Math.sin(angle) * dist;
+  // Clamp to AI's side (right side)
+  shotXR = Math.max(0.53, Math.min(0.96, shotXR));
+  shotYR = Math.max(0.06, Math.min(0.94, shotYR));
 
-  shotX = Math.max(0.53, Math.min(0.95, shotX));
-  shotY = Math.max(0.08, Math.min(0.92, shotY));
-
-  return { xRatio: shotX, yRatio: shotY, firingUnit };
+  return { xRatio: shotXR, yRatio: shotYR, firingUnit: selectedShooter };
 }

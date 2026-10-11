@@ -1,362 +1,602 @@
-import { Unit, Shot, PlayerId, TerrainType, UnitType, UNIT_SPECS } from './types';
+import { Unit, Shot, PlayerId, TerrainType, FoldLineMode, UNIT_SPECS } from './types';
 
-export const P1_COLOR = '#1d4ed8'; // Royal Ballpoint Blue
-export const P2_COLOR = '#dc2626'; // Vivid Ballpoint Red
+export const P1_COLOR = '#00d2ff'; // Cyber Cyan / Tactical Blue
+export const P2_COLOR = '#ff3b57'; // Neon Crimson / Tactical Red
+export const P1_FILL = 'rgba(0, 210, 255, 0.2)';
+export const P2_FILL = 'rgba(255, 59, 87, 0.2)';
 
-// Water zone is in the lower section of the canvas (yRatio >= 0.70)
+export function getFoldAngle(mode: FoldLineMode): number {
+  if (mode === 'slight_right') return (9 * Math.PI) / 180; // +9 deg
+  if (mode === 'slight_left') return (-9 * Math.PI) / 180; // -9 deg
+  return 0; // vertical center
+}
+
+export function getFoldLineParams(width: number, height: number, mode: FoldLineMode) {
+  const p0x = width * 0.5;
+  const p0y = height * 0.5;
+  const angle = getFoldAngle(mode);
+  const nx = Math.cos(angle);
+  const ny = Math.sin(angle);
+  return { p0x, p0y, nx, ny, angle };
+}
+
+export function getPlayerSideForPoint(
+  px: number,
+  py: number,
+  width: number,
+  height: number,
+  mode: FoldLineMode
+): PlayerId {
+  const { p0x, p0y, nx, ny } = getFoldLineParams(width, height, mode);
+  const dot = (px - p0x) * nx + (py - p0y) * ny;
+  return dot < 0 ? 1 : 2;
+}
+
+export function reflectAcrossFoldLine(
+  px: number,
+  py: number,
+  width: number,
+  height: number,
+  mode: FoldLineMode
+): { rx: number; ry: number } {
+  const { p0x, p0y, nx, ny } = getFoldLineParams(width, height, mode);
+  const dot = (px - p0x) * nx + (py - p0y) * ny;
+  const rx = px - 2 * dot * nx;
+  const ry = py - 2 * dot * ny;
+  return { rx, ry };
+}
+
+// Check if point is inside water in River terrain (yRatio >= 0.70)
 export function isPointInWater(xRatio: number, yRatio: number): boolean {
-  // Gentle wavy shoreline along yRatio ~ 0.70
   const shoreLine = 0.70 + Math.sin(xRatio * Math.PI * 4) * 0.03;
   return yRatio >= shoreLine;
 }
 
-// Bunkers / Obstacles that block shots
-export const OBSTACLES = [
-  // Player 1 side (Left)
-  { xRatio: 0.22, yRatio: 0.32, radius: 0.065, name: 'سنگر کوهستانی الف' },
-  { xRatio: 0.36, yRatio: 0.52, radius: 0.055, name: 'پناه‌گاه سنگی ب' },
-  // Player 2 side (Right - symmetric)
-  { xRatio: 0.78, yRatio: 0.32, radius: 0.065, name: 'سنگر کوهستانی ج' },
-  { xRatio: 0.64, yRatio: 0.52, radius: 0.055, name: 'پناه‌گاه سنگی د' },
-];
+// Check if an allied unit is shielded by an active friendly bunker
+export function getBunkerProtectingUnit(
+  unit: Unit,
+  allUnits: Unit[],
+  width: number,
+  height: number,
+  unitScale: number
+): Unit | null {
+  if (unit.type === 'bunker') return null; // A bunker doesn't protect another bunker
 
-export function isPointInObstacle(xRatio: number, yRatio: number): boolean {
-  return OBSTACLES.some((obs) => {
-    const dx = obs.xRatio - xRatio;
-    const dy = obs.yRatio - yRatio;
-    return Math.sqrt(dx * dx + dy * dy) <= obs.radius;
-  });
+  const ux = unit.xRatio * width;
+  const uy = unit.yRatio * height;
+
+  const friendlyBunkers = allUnits.filter(
+    (u) => u.player === unit.player && u.type === 'bunker' && !u.isDestroyed
+  );
+
+  for (const bunker of friendlyBunkers) {
+    const bx = bunker.xRatio * width;
+    const by = bunker.yRatio * height;
+    const dist = Math.hypot(ux - bx, uy - by);
+    const auraR = (UNIT_SPECS.bunker.bunkerAuraRadius || 55) * unitScale;
+    if (dist <= auraR) {
+      return bunker;
+    }
+  }
+
+  return null;
 }
 
-// Draw Pure Clean White Paper Canvas
-export function drawCleanWhitePaper(
+// Render Dark Tactical HD Map Background
+export function drawTacticalBattlefield(
   ctx: CanvasRenderingContext2D,
   width: number,
   height: number,
-  terrain: TerrainType
+  terrain: TerrainType,
+  foldMode: FoldLineMode,
+  timestamp: number
 ) {
-  // 1. Pure clean white paper background
-  ctx.fillStyle = '#ffffff';
+  // 1. Dark High-Definition Background
+  ctx.fillStyle = '#090d16';
   ctx.fillRect(0, 0, width, height);
 
-  // Subtle clean border
-  ctx.strokeStyle = '#e2e8f0';
+  // Tactical Blueprint Matrix Grid
+  ctx.save();
+  const gridSize = 40;
+  ctx.strokeStyle = 'rgba(30, 41, 59, 0.45)';
   ctx.lineWidth = 1;
-  ctx.strokeRect(0, 0, width, height);
 
-  // 2. Terrains
-  if (terrain === 'river') {
-    // Water zone in the lower section (بخش پایین برای استقرار قایق‌ها)
-    ctx.save();
+  for (let x = 0; x < width; x += gridSize) {
     ctx.beginPath();
-    const steps = 60;
-    // Draw wavy shoreline across width
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, height);
+    ctx.stroke();
+  }
+  for (let y = 0; y < height; y += gridSize) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(width, y);
+    ctx.stroke();
+  }
+
+  // Subtle tactical topographic contour rings
+  ctx.strokeStyle = 'rgba(51, 65, 85, 0.25)';
+  ctx.lineWidth = 1.2;
+  [
+    { cx: width * 0.25, cy: height * 0.35, r: 80 },
+    { cx: width * 0.75, cy: height * 0.35, r: 80 },
+    { cx: width * 0.5, cy: height * 0.5, r: 120 },
+  ].forEach((ring) => {
+    ctx.beginPath();
+    ctx.arc(ring.cx, ring.cy, ring.r, 0, Math.PI * 2);
+    ctx.stroke();
+  });
+
+  // Perimeter High-Tech Boundary
+  ctx.strokeStyle = 'rgba(56, 189, 248, 0.25)';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(12, 12, width - 24, height - 24);
+
+  // Corner HUD Brackets
+  const cornerSize = 16;
+  ctx.strokeStyle = '#38bdf8';
+  ctx.lineWidth = 2.5;
+
+  // Top-Left
+  ctx.beginPath();
+  ctx.moveTo(12, 12 + cornerSize);
+  ctx.lineTo(12, 12);
+  ctx.lineTo(12 + cornerSize, 12);
+  ctx.stroke();
+  // Top-Right
+  ctx.beginPath();
+  ctx.moveTo(width - 12 - cornerSize, 12);
+  ctx.lineTo(width - 12, 12);
+  ctx.lineTo(width - 12, 12 + cornerSize);
+  ctx.stroke();
+  // Bottom-Left
+  ctx.beginPath();
+  ctx.moveTo(12, height - 12 - cornerSize);
+  ctx.lineTo(12, height - 12);
+  ctx.lineTo(12 + cornerSize, height - 12);
+  ctx.stroke();
+  // Bottom-Right
+  ctx.beginPath();
+  ctx.moveTo(width - 12 - cornerSize, height - 12);
+  ctx.lineTo(width - 12, height - 12);
+  ctx.lineTo(width - 12, height - 12 - cornerSize);
+  ctx.stroke();
+  ctx.restore();
+
+  // 2. Terrain: River & Coastal Waters
+  if (terrain === 'river') {
+    ctx.save();
+    const waterGrad = ctx.createLinearGradient(0, height * 0.7, 0, height);
+    waterGrad.addColorStop(0, 'rgba(14, 116, 144, 0.45)');
+    waterGrad.addColorStop(1, 'rgba(6, 78, 59, 0.65)');
+
+    const wavePhase = timestamp * 0.003;
+    ctx.beginPath();
+    const steps = 80;
     for (let i = 0; i <= steps; i++) {
       const xr = i / steps;
       const x = xr * width;
-      const y = (0.70 + Math.sin(xr * Math.PI * 4) * 0.03) * height;
+      const wave = Math.sin(xr * Math.PI * 6 + wavePhase) * 4;
+      const y = (0.7 + Math.sin(xr * Math.PI * 4) * 0.03) * height + wave;
       if (i === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
     }
-    // Complete rectangle to bottom
     ctx.lineTo(width, height);
     ctx.lineTo(0, height);
     ctx.closePath();
-
-    // Watercolor blue gradient
-    const waterGrad = ctx.createLinearGradient(0, height * 0.7, 0, height);
-    waterGrad.addColorStop(0, 'rgba(186, 230, 253, 0.45)');
-    waterGrad.addColorStop(1, 'rgba(125, 211, 252, 0.65)');
     ctx.fillStyle = waterGrad;
     ctx.fill();
 
-    // Shoreline dashed line
-    ctx.lineWidth = 1.4;
-    ctx.strokeStyle = 'rgba(56, 189, 248, 0.8)';
-    ctx.setLineDash([6, 4]);
+    // Fluorescent Shoreline Wave Edge
+    ctx.strokeStyle = '#06b6d4';
+    ctx.lineWidth = 2.4;
+    ctx.shadowColor = '#06b6d4';
+    ctx.shadowBlur = 8;
     ctx.stroke();
-    ctx.setLineDash([]);
+    ctx.shadowBlur = 0;
 
-    // Water ripple doodles
-    ctx.strokeStyle = 'rgba(14, 165, 233, 0.5)';
-    ctx.lineWidth = 1;
-    for (let rx = 0.08; rx <= 0.95; rx += 0.14) {
-      const px = rx * width;
-      const py = height * 0.84 + Math.sin(rx * 12) * 12;
+    // Sub-surface flow markers
+    ctx.strokeStyle = 'rgba(6, 182, 212, 0.25)';
+    ctx.lineWidth = 1.2;
+    ctx.setLineDash([8, 12]);
+    for (let r = 1; r <= 3; r++) {
+      const ry = height * (0.74 + r * 0.07);
       ctx.beginPath();
-      ctx.moveTo(px - 14, py);
-      ctx.quadraticCurveTo(px - 7, py - 3, px, py);
-      ctx.quadraticCurveTo(px + 7, py + 3, px + 14, py);
+      ctx.moveTo(0, ry);
+      ctx.lineTo(width, ry);
       ctx.stroke();
     }
-
-    // Water label
-    ctx.font = '10px Vazirmatn, sans-serif';
-    ctx.fillStyle = 'rgba(2, 132, 199, 0.7)';
-    ctx.textAlign = 'left';
-    ctx.fillText('🌊 پهنه آبی / رودخانه (مخصوص قایق‌ها)', 16, height - 12);
-    ctx.restore();
-  } else if (terrain === 'obstacles') {
-    // Rocky obstacles / bunkers that block bullets
-    ctx.save();
-    OBSTACLES.forEach((obs) => {
-      const ox = obs.xRatio * width;
-      const oy = obs.yRatio * height;
-      const or = obs.radius * width;
-
-      // Heavy granite rock sketch
-      ctx.fillStyle = '#f8fafc';
-      ctx.strokeStyle = '#475569';
-      ctx.lineWidth = 2;
-
-      ctx.beginPath();
-      const points = 8;
-      for (let p = 0; p < points; p++) {
-        const ang = (p * Math.PI * 2) / points;
-        const rad = or * (0.8 + Math.sin(p * 2.7) * 0.2);
-        const px = ox + Math.cos(ang) * rad;
-        const py = oy + Math.sin(ang) * rad;
-        if (p === 0) ctx.moveTo(px, py);
-        else ctx.lineTo(px, py);
-      }
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-
-      // Rock interior hatch marks
-      ctx.strokeStyle = 'rgba(100, 116, 139, 0.5)';
-      ctx.lineWidth = 1.2;
-      ctx.beginPath();
-      for (let h = -or * 0.5; h <= or * 0.5; h += 9) {
-        ctx.moveTo(ox + h - 8, oy - 10);
-        ctx.lineTo(ox + h + 8, oy + 10);
-      }
-      ctx.stroke();
-
-      // Shield label
-      ctx.font = 'bold 10px Vazirmatn, sans-serif';
-      ctx.fillStyle = '#475569';
-      ctx.textAlign = 'center';
-      ctx.fillText('🛡️ سنگر بتنی', ox, oy + or + 14);
-    });
+    ctx.setLineDash([]);
     ctx.restore();
   }
 
-  // 3. Middle Fold Crease (خط تای وسط - خط عمودی نقطه‌چین باریک و ظریف در x = Width / 2)
-  const midX = width / 2;
+  // 3. Dynamic Laser Fold Line
+  ctx.save();
+  const { p0x, p0y, nx, ny, angle } = getFoldLineParams(width, height, foldMode);
 
-  // Delicate fold line (thin dotted)
+  // Line points intersecting canvas top and bottom
+  const topY = 0;
+  const topX = p0x - (topY - p0y) * (ny / nx);
+  const botY = height;
+  const botX = p0x - (botY - p0y) * (ny / nx);
+
+  // Glowing laser seam
+  ctx.strokeStyle = 'rgba(168, 85, 247, 0.35)';
+  ctx.lineWidth = 12;
   ctx.beginPath();
-  ctx.setLineDash([4, 4]);
-  ctx.lineWidth = 1.2;
-  ctx.strokeStyle = 'rgba(148, 163, 184, 0.75)';
-  ctx.moveTo(midX, 0);
-  ctx.lineTo(midX, height);
+  ctx.moveTo(topX, topY);
+  ctx.lineTo(botX, botY);
   ctx.stroke();
-  ctx.setLineDash([]); // reset
 
-  // Crease label
-  ctx.font = '11px Vazirmatn, sans-serif';
-  ctx.fillStyle = 'rgba(148, 163, 184, 0.85)';
+  ctx.strokeStyle = '#c084fc';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([6, 6]);
+  ctx.shadowColor = '#c084fc';
+  ctx.shadowBlur = 10;
+  ctx.beginPath();
+  ctx.moveTo(topX, topY);
+  ctx.lineTo(botX, botY);
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+  ctx.setLineDash([]);
+
+  // Laser Fold Center Badge
+  const midX = (topX + botX) / 2;
+  const midY = height * 0.07;
+  ctx.font = 'bold 11px Vazirmatn, sans-serif';
+  ctx.fillStyle = '#e9d5ff';
   ctx.textAlign = 'center';
-  ctx.fillText('✂ خط تا کردن کاغذ', midX, 18);
+  const modeLabel =
+    foldMode === 'slight_right'
+      ? '📐 خط تا: مورب راست (+۹°)'
+      : foldMode === 'slight_left'
+      ? '📐 خط تا: مورب چپ (-۹°)'
+      : '✂ خط تا: عمودی مرکز (۰°)';
+  ctx.fillText(modeLabel, midX, midY);
+  ctx.restore();
 }
 
-// Draw Unit with Scaling, HP Pips, and Upgrade Badges
-export function drawUnit(
+// Render Dark Tactical Vector Units
+export function drawTacticalUnit(
   ctx: CanvasRenderingContext2D,
   unit: Unit,
   canvasWidth: number,
   canvasHeight: number,
-  unitScale: number = 1.0,
-  isVisible: boolean = true,
-  isSelected: boolean = false
+  unitScale: number,
+  isSelected: boolean,
+  timestamp: number
 ) {
-  if (!isVisible && !unit.isDestroyed) return;
-
-  const x = unit.xRatio * canvasWidth;
-  const y = unit.yRatio * canvasHeight;
-  const color = unit.player === 1 ? P1_COLOR : P2_COLOR;
+  const ux = unit.xRatio * canvasWidth;
+  const uy = unit.yRatio * canvasHeight;
+  const col = unit.player === 1 ? P1_COLOR : P2_COLOR;
   const hitR = UNIT_SPECS[unit.type].baseHitRadius * unitScale;
+  const dir = unit.player === 1 ? 1 : -1;
 
   ctx.save();
-  ctx.translate(x, y);
+  ctx.translate(ux, uy);
 
   if (unit.isDestroyed) {
     ctx.globalAlpha = 0.45;
   }
 
-  // Selected highlight ring
-  if (isSelected && !unit.isDestroyed) {
-    ctx.beginPath();
-    ctx.arc(0, 0, hitR + 8, 0, Math.PI * 2);
-    ctx.strokeStyle = '#eab308'; // Gold highlight
-    ctx.lineWidth = 2.5;
-    ctx.setLineDash([4, 3]);
-    ctx.stroke();
-    ctx.setLineDash([]);
+  // 1. Bunker Forcefield Aura Rendering (if this unit is a bunker)
+  if (unit.type === 'bunker' && !unit.isDestroyed) {
+    ctx.save();
+    const auraRadius = (UNIT_SPECS.bunker.bunkerAuraRadius || 55) * unitScale;
+    const pulse = Math.sin(timestamp * 0.005) * 3;
 
-    ctx.font = 'bold 10px Vazirmatn, sans-serif';
-    ctx.fillStyle = '#ca8a04';
+    // Glowing shield field
+    ctx.beginPath();
+    ctx.arc(0, 0, auraRadius + pulse, 0, Math.PI * 2);
+    ctx.fillStyle = unit.player === 1 ? 'rgba(0, 210, 255, 0.08)' : 'rgba(255, 59, 87, 0.08)';
+    ctx.fill();
+
+    ctx.strokeStyle = unit.player === 1 ? 'rgba(0, 210, 255, 0.5)' : 'rgba(255, 59, 87, 0.5)';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 4]);
+    ctx.stroke();
+
+    // Shield Icon tag
+    ctx.font = '10px Vazirmatn, sans-serif';
+    ctx.fillStyle = col;
     ctx.textAlign = 'center';
-    ctx.fillText('آماده شلیک 🎯', 0, -hitR - 12);
+    ctx.fillText('🛡️ هاله دفاعی', 0, auraRadius + 14);
+    ctx.restore();
   }
 
-  // HP Indicators & Upgrade Badges above unit
-  if (!unit.isDestroyed) {
+  // 2. Selection Reticle
+  if (isSelected && !unit.isDestroyed) {
     ctx.save();
-    // HP Pips
-    const pipRadius = 3;
-    const totalPips = unit.maxHp;
-    const pipsStartX = -((totalPips - 1) * (pipRadius * 2 + 3)) / 2;
-    const pipsY = -hitR - 5;
+    const pulse = (Math.sin(timestamp * 0.008) + 1) * 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, hitR + 8 + pulse, 0, Math.PI * 2);
+    ctx.strokeStyle = '#facc15';
+    ctx.lineWidth = 2.4;
+    ctx.setLineDash([6, 4]);
+    ctx.stroke();
+    ctx.restore();
+  }
 
-    for (let p = 0; p < totalPips; p++) {
-      const px = pipsStartX + p * (pipRadius * 2 + 3);
+  // 3. Health Pips & Cooldown Badges
+  if (!unit.isDestroyed) {
+    const totalHp = unit.maxHp;
+    const pipSpacing = 8;
+    const startX = -((totalHp - 1) * pipSpacing) / 2;
+    for (let p = 0; p < totalHp; p++) {
       ctx.beginPath();
-      ctx.arc(px, pipsY, pipRadius, 0, Math.PI * 2);
-      if (p < unit.hp) {
-        ctx.fillStyle = '#10b981'; // Green full HP
-        ctx.fill();
-        ctx.strokeStyle = '#059669';
-      } else {
-        ctx.fillStyle = '#e2e8f0'; // Empty lost HP
-        ctx.fill();
-        ctx.strokeStyle = '#94a3b8';
-      }
+      ctx.arc(startX + p * pipSpacing, -hitR - 8, 3, 0, Math.PI * 2);
+      ctx.fillStyle = p < unit.hp ? '#10b981' : '#475569';
+      ctx.fill();
+      ctx.strokeStyle = '#0f172a';
       ctx.lineWidth = 1;
       ctx.stroke();
     }
 
-    // Upgrades badge (star)
-    const upgradeLevel = unit.upgrades.extraHp + unit.upgrades.inkRadiusBoost + (unit.upgrades.windResistance ? 1 : 0);
-    if (upgradeLevel > 0) {
-      ctx.font = 'bold 11px sans-serif';
-      ctx.fillStyle = '#eab308';
+    // Cooldown Hourglass Badge
+    if (unit.cooldownRemaining > 0) {
+      ctx.fillStyle = '#f97316';
+      ctx.beginPath();
+      ctx.arc(hitR + 4, -hitR - 4, 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.font = '8px sans-serif';
+      ctx.fillStyle = '#ffffff';
       ctx.textAlign = 'center';
-      ctx.fillText('★'.repeat(Math.min(3, upgradeLevel)), 0, hitR + 13);
+      ctx.fillText('⏳', hitR + 4, -hitR - 1);
     }
-    ctx.restore();
   }
 
-  ctx.rotate(unit.angle);
+  // 4. Vector Sprite Drawing
   ctx.scale(unitScale, unitScale);
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 2.2;
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
 
   if (unit.type === 'soldier') {
-    // 🪖 Soldier: Stick figure with helmet and rifle
-    ctx.fillStyle = unit.player === 1 ? 'rgba(29, 78, 216, 0.15)' : 'rgba(220, 38, 38, 0.15)';
+    // Ground tactical shadow
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
     ctx.beginPath();
-    ctx.arc(0, -9, 5, 0, Math.PI * 2);
-    ctx.fill(); ctx.stroke();
+    ctx.ellipse(0, 12, 7, 3, 0, 0, Math.PI * 2);
+    ctx.fill();
 
+    // Legs
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 2.4;
     ctx.beginPath();
-    ctx.moveTo(-6, -8); ctx.lineTo(6, -8); // Helmet brim
-    ctx.moveTo(0, -4); ctx.lineTo(0, 6); // Spine
-    ctx.moveTo(0, 6); ctx.lineTo(-5, 13); // Leg L
-    ctx.moveTo(0, 6); ctx.lineTo(5, 13); // Leg R
-    const dir = unit.player === 1 ? 1 : -1;
-    ctx.moveTo(0, 0); ctx.lineTo(dir * 11, -3); // Arm & Rifle
-    ctx.lineTo(dir * 16, -7); // Rifle barrel
+    ctx.moveTo(-2, 4);
+    ctx.lineTo(-4, 12);
+    ctx.moveTo(2, 4);
+    ctx.lineTo(4, 12);
+    ctx.stroke();
+
+    // Body
+    ctx.fillStyle = col;
+    ctx.beginPath();
+    ctx.roundRect(-5, -4, 10, 9, 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // Helmet & Visor
+    ctx.fillStyle = '#1e293b';
+    ctx.beginPath();
+    ctx.arc(0, -9, 5.5, Math.PI, 0);
+    ctx.fill();
+
+    // Neon Cyber Visor
+    ctx.fillStyle = '#38bdf8';
+    ctx.fillRect(dir * -1, -8, 5.5, 2.5);
+
+    // Sniper / AA Rifle
+    ctx.strokeStyle = '#cbd5e1';
+    ctx.lineWidth = 2.4;
+    ctx.beginPath();
+    ctx.moveTo(-dir * 2, 0);
+    ctx.lineTo(dir * 14, -3);
     ctx.stroke();
   } else if (unit.type === 'tank') {
-    // 🛡️ Tank: Body, treads, turret, cannon
-    ctx.fillStyle = unit.player === 1 ? 'rgba(29, 78, 216, 0.12)' : 'rgba(220, 38, 38, 0.12)';
-    ctx.fillRect(-15, -10, 30, 20);
-    ctx.strokeRect(-15, -10, 30, 20);
+    // Tracks
+    ctx.fillStyle = '#1e293b';
+    ctx.fillRect(-17, -13, 34, 5);
+    ctx.strokeRect(-17, -13, 34, 5);
+    ctx.fillRect(-17, 8, 34, 5);
+    ctx.strokeRect(-17, 8, 34, 5);
 
-    ctx.strokeRect(-16, -14, 32, 4);
-    ctx.strokeRect(-16, 10, 32, 4);
-
+    // Hull
+    ctx.fillStyle = col;
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 1.4;
     ctx.beginPath();
-    ctx.arc(0, 0, 7, 0, Math.PI * 2);
-    ctx.fill(); ctx.stroke();
-
-    const dir = unit.player === 1 ? 1 : -1;
-    ctx.beginPath();
-    ctx.lineWidth = 3.2;
-    ctx.moveTo(dir * 7, 0); ctx.lineTo(dir * 22, 0);
+    ctx.roundRect(-15, -8, 30, 16, 3);
+    ctx.fill();
     ctx.stroke();
-  } else if (unit.type === 'boat') {
-    // 🛥️ Boat: Warship with hull, superstructure, gun turret
-    ctx.fillStyle = unit.player === 1 ? 'rgba(29, 78, 216, 0.15)' : 'rgba(220, 38, 38, 0.15)';
-    const dir = unit.player === 1 ? 1 : -1;
+
+    // Turret
+    ctx.fillStyle = '#0f172a';
+    ctx.beginPath();
+    ctx.arc(dir * -1, 0, 7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = col;
+    ctx.stroke();
+
+    // Cannon Barrel
+    ctx.strokeStyle = '#cbd5e1';
+    ctx.lineWidth = 3.6;
+    ctx.beginPath();
+    ctx.moveTo(dir * 5, 0);
+    ctx.lineTo(dir * 23, 0);
+    ctx.stroke();
+  } else if (unit.type === 'plane') {
+    const hoverY = Math.sin(timestamp * 0.004 + unit.xRatio * 10) * 3;
+    // Projected ground shadow
+    ctx.save();
+    ctx.translate(0, 18 - hoverY);
+    ctx.scale(1.1, 0.4);
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+    ctx.beginPath();
+    ctx.arc(0, 0, 20, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    ctx.translate(0, hoverY);
+
+    // Delta-Wing Stealth Jet
+    ctx.fillStyle = col;
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 1.5;
 
     ctx.beginPath();
-    ctx.moveTo(dir * 22, 0);
+    ctx.moveTo(dir * 23, 0);
+    ctx.lineTo(dir * 5, -5);
+    ctx.lineTo(-dir * 8, -20);
+    ctx.lineTo(-dir * 14, -18);
+    ctx.lineTo(-dir * 8, -4);
+    ctx.lineTo(-dir * 18, -10);
+    ctx.lineTo(-dir * 20, 0);
+    ctx.lineTo(-dir * 18, 10);
+    ctx.lineTo(-dir * 8, 4);
+    ctx.lineTo(-dir * 14, 18);
+    ctx.lineTo(-dir * 8, 20);
+    ctx.lineTo(dir * 5, 5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Glowing Cockpit Canopy
+    ctx.fillStyle = '#38bdf8';
+    ctx.beginPath();
+    ctx.ellipse(dir * 6, 0, 7, 3, 0, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (unit.type === 'boat') {
+    // Water wake waves
+    ctx.strokeStyle = 'rgba(6, 182, 212, 0.6)';
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.moveTo(dir * 24, 0);
+    ctx.quadraticCurveTo(dir * 14, -14, -dir * 18, -14);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.moveTo(dir * 24, 0);
+    ctx.quadraticCurveTo(dir * 14, 14, -dir * 18, 14);
+    ctx.stroke();
+
+    // Naval Stealth Hull
+    ctx.fillStyle = col;
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(dir * 23, 0);
     ctx.lineTo(dir * 14, -9);
     ctx.lineTo(-dir * 18, -9);
     ctx.lineTo(-dir * 18, 9);
     ctx.lineTo(dir * 14, 9);
     ctx.closePath();
-    ctx.fill(); ctx.stroke();
-
-    ctx.strokeRect(-dir * 6, -5, 12, 10);
-    ctx.beginPath();
-    ctx.lineWidth = 2.6;
-    ctx.moveTo(dir * 8, 0); ctx.lineTo(dir * 19, -4);
+    ctx.fill();
     ctx.stroke();
-  } else if (unit.type === 'plane') {
-    // ✈️ Airplane: Swept wing fighter jet
-    ctx.fillStyle = unit.player === 1 ? 'rgba(29, 78, 216, 0.14)' : 'rgba(220, 38, 38, 0.14)';
-    const dir = unit.player === 1 ? 1 : -1;
 
-    // Fuselage
-    ctx.beginPath();
-    ctx.moveTo(dir * 22, 0);
-    ctx.lineTo(-dir * 14, -5);
-    ctx.lineTo(-dir * 18, 0);
-    ctx.lineTo(-dir * 14, 5);
-    ctx.closePath();
-    ctx.fill(); ctx.stroke();
+    // Deck Cabin & Radar
+    ctx.fillStyle = '#1e293b';
+    ctx.fillRect(-dir * 4, -5, 11, 10);
+    ctx.strokeStyle = '#38bdf8';
+    ctx.strokeRect(-dir * 4, -5, 11, 10);
 
-    // Wings
+    // Gun Turret
+    ctx.fillStyle = '#0f172a';
     ctx.beginPath();
-    ctx.moveTo(dir * 4, 0);
-    ctx.lineTo(-dir * 6, -18);
-    ctx.lineTo(-dir * 12, -18);
-    ctx.lineTo(-dir * 4, 0);
-    ctx.lineTo(-dir * 12, 18);
-    ctx.lineTo(-dir * 6, 18);
+    ctx.arc(dir * 11, 0, 3.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.lineWidth = 2.2;
+    ctx.strokeStyle = '#cbd5e1';
+    ctx.beginPath();
+    ctx.moveTo(dir * 11, 0);
+    ctx.lineTo(dir * 19, 0);
+    ctx.stroke();
+  } else if (unit.type === 'bunker') {
+    // Reinforced Hexagonal Bunker
+    ctx.fillStyle = '#1e293b';
+    ctx.strokeStyle = col;
+    ctx.lineWidth = 2.2;
+
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) {
+      const bAng = (i * Math.PI) / 3;
+      const bx = Math.cos(bAng) * 16;
+      const by = Math.sin(bAng) * 16;
+      if (i === 0) ctx.moveTo(bx, by);
+      else ctx.lineTo(bx, by);
+    }
     ctx.closePath();
-    ctx.fill(); ctx.stroke();
+    ctx.fill();
+    ctx.stroke();
+
+    // Embrasures (Cross pattern)
+    ctx.fillStyle = col;
+    ctx.fillRect(-10, -2.5, 20, 5);
+    ctx.fillRect(-2.5, -10, 5, 20);
+  } else if (unit.type === 'factory') {
+    // High-tech Munitions Factory
+    ctx.fillStyle = col;
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.rect(-17, -8, 34, 18);
+    ctx.fill();
+    ctx.stroke();
+
+    // Industrial saw-tooth roof
+    ctx.fillStyle = '#1e293b';
+    ctx.beginPath();
+    ctx.moveTo(-17, -8);
+    ctx.lineTo(-8, -17);
+    ctx.lineTo(-8, -8);
+    ctx.lineTo(1, -17);
+    ctx.lineTo(1, -8);
+    ctx.lineTo(10, -17);
+    ctx.lineTo(10, -8);
+    ctx.lineTo(17, -8);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Twin Chimneys with Smoke
+    ctx.fillStyle = '#334155';
+    ctx.fillRect(-15, -22, 5, 14);
+    ctx.fillRect(10, -22, 5, 14);
+
+    if (!unit.isDestroyed) {
+      const puff = (Math.sin(timestamp * 0.005 + unit.xRatio * 10) + 1) * 3;
+      ctx.fillStyle = 'rgba(148, 163, 184, 0.6)';
+      ctx.beginPath();
+      ctx.arc(-12.5, -28 - puff, 3.5 + puff * 0.5, 0, Math.PI * 2);
+      ctx.arc(12.5, -27 - puff * 0.8, 3 + puff * 0.4, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 
   ctx.restore();
 
-  // Destroyed scratch scribble
+  // 5. Wrecked / Destroyed Cross
   if (unit.isDestroyed) {
     ctx.save();
-    ctx.translate(x, y);
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 2.5;
+    ctx.translate(ux, uy);
+    ctx.strokeStyle = '#ef4444';
+    ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.moveTo(-18 * unitScale, -16 * unitScale);
-    ctx.lineTo(18 * unitScale, 16 * unitScale);
-    ctx.moveTo(-18 * unitScale, 16 * unitScale);
-    ctx.lineTo(18 * unitScale, -16 * unitScale);
-    ctx.moveTo(-20 * unitScale, 0);
-    ctx.lineTo(20 * unitScale, 0);
+    ctx.moveTo(-14, -14);
+    ctx.lineTo(14, 14);
+    ctx.moveTo(-14, 14);
+    ctx.lineTo(14, -14);
     ctx.stroke();
-
-    ctx.font = 'bold 11px Vazirmatn, sans-serif';
-    ctx.fillStyle = '#dc2626';
+    ctx.font = 'bold 10px Vazirmatn, sans-serif';
+    ctx.fillStyle = '#ef4444';
     ctx.textAlign = 'center';
-    ctx.fillText('منهدم شد!', 0, -20 * unitScale);
+    ctx.fillText('منهدم', 0, -hitR - 6);
     ctx.restore();
   }
 }
 
-// Draw Shots (Source pen dot and mirrored landing imprint)
-export function drawShot(
+// Draw Kinetic Laser / Impact Shots
+export function drawTacticalShot(
   ctx: CanvasRenderingContext2D,
   shot: Shot,
   canvasWidth: number,
-  canvasHeight: number,
-  index: number
+  canvasHeight: number
 ) {
   const sx = shot.sourceXRatio * canvasWidth;
   const sy = shot.sourceYRatio * canvasHeight;
@@ -365,129 +605,40 @@ export function drawShot(
   const col = shot.player === 1 ? P1_COLOR : P2_COLOR;
   const r = shot.inkRadius;
 
-  // Source ink dot
+  // Source Firing Point
   ctx.save();
   ctx.fillStyle = col;
   ctx.beginPath();
-  ctx.arc(sx, sy, r * 0.85, 0, Math.PI * 2);
+  ctx.arc(sx, sy, r * 0.7, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.fillStyle = shot.player === 1 ? 'rgba(29, 78, 216, 0.22)' : 'rgba(220, 38, 38, 0.22)';
-  ctx.beginPath();
-  ctx.arc(sx, sy, r * 1.3, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.font = '10px Vazirmatn, sans-serif';
-  ctx.fillStyle = 'rgba(100, 116, 139, 0.8)';
-  ctx.textAlign = 'center';
-  ctx.fillText(`#${index + 1}`, sx, sy - r - 4);
-
-  // Mirrored imprint on opponent side
-  ctx.fillStyle = col;
-  ctx.globalAlpha = 0.85;
+  // Target Impact Blast Ring
   ctx.beginPath();
   ctx.arc(tx, ty, r, 0, Math.PI * 2);
+  ctx.fillStyle = col;
   ctx.fill();
 
-  // Imprint pressure ring
-  ctx.strokeStyle = col;
-  ctx.lineWidth = 1.3;
-  ctx.beginPath();
-  ctx.arc(tx, ty, r * 1.4, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+  ctx.lineWidth = 1.5;
   ctx.stroke();
 
+  // Direct Hit Indicator
   if (shot.isHit) {
     ctx.strokeStyle = '#ef4444';
-    ctx.lineWidth = 1.8;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath();
+    ctx.arc(tx, ty, r * 1.8, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  // Absorbed by Bunker Shield Indicator
+  if (shot.absorbedByBunkerId) {
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 2.5;
     ctx.beginPath();
     ctx.arc(tx, ty, r * 2.2, 0, Math.PI * 2);
     ctx.stroke();
-
-    ctx.font = 'bold 11px Vazirmatn, sans-serif';
-    ctx.fillStyle = '#dc2626';
-    ctx.textAlign = 'center';
-    const bonusText = shot.unitDestroyed ? ` (+${shot.bountyEarned}🪙 غنیمت)` : ' (-۱ HP)';
-    ctx.fillText(`اصابت! 🎯${bonusText}`, tx, ty - r - 8);
-  } else if (shot.isBlockedByObstacle) {
-    ctx.font = 'bold 10px Vazirmatn, sans-serif';
-    ctx.fillStyle = '#64748b';
-    ctx.textAlign = 'center';
-    ctx.fillText('برخورد به سنگر! 🛡️', tx, ty - r - 6);
-  } else {
-    // Miss marker
-    ctx.setLineDash([2, 3]);
-    ctx.strokeStyle = 'rgba(148, 163, 184, 0.7)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.arc(tx, ty, r * 1.5, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.setLineDash([]);
-  }
-  ctx.restore();
-}
-
-// Aim Preview
-export function drawAimPreview(
-  ctx: CanvasRenderingContext2D,
-  hoverX: number,
-  hoverY: number,
-  player: PlayerId,
-  selectedUnit: Unit | null,
-  canvasWidth: number,
-  unitScale: number,
-  showMirrorHint: boolean,
-  windOffsetPx: { x: number; y: number }
-) {
-  const isP1 = player === 1;
-  const midX = canvasWidth / 2;
-
-  // Validate hover on own half
-  const isValidSide = isP1 ? hoverX < midX - 10 : hoverX > midX + 10;
-  if (!isValidSide) return;
-
-  const mirrorX = canvasWidth - hoverX + windOffsetPx.x;
-  const mirrorY = hoverY + windOffsetPx.y;
-  const color = isP1 ? P1_COLOR : P2_COLOR;
-
-  const inkR = (selectedUnit
-    ? UNIT_SPECS[selectedUnit.type].baseInkRadius + selectedUnit.upgrades.inkRadiusBoost * 2.5
-    : 8) * unitScale;
-
-  ctx.save();
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 1.5;
-  ctx.beginPath();
-  ctx.arc(hoverX, hoverY, inkR, 0, Math.PI * 2);
-  ctx.stroke();
-
-  // Crosshair
-  ctx.beginPath();
-  ctx.moveTo(hoverX - inkR - 4, hoverY);
-  ctx.lineTo(hoverX + inkR + 4, hoverY);
-  ctx.moveTo(hoverX, hoverY - inkR - 4);
-  ctx.lineTo(hoverX, hoverY + inkR + 4);
-  ctx.stroke();
-
-  if (showMirrorHint) {
-    ctx.setLineDash([4, 4]);
-    ctx.strokeStyle = 'rgba(100, 116, 139, 0.45)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(hoverX, hoverY);
-    ctx.lineTo(mirrorX, mirrorY);
-    ctx.stroke();
-
-    ctx.setLineDash([]);
-    ctx.strokeStyle = 'rgba(234, 88, 12, 0.75)';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.arc(mirrorX, mirrorY, inkR, 0, Math.PI * 2);
-    ctx.stroke();
-
-    ctx.font = '10px Vazirmatn, sans-serif';
-    ctx.fillStyle = 'rgba(234, 88, 12, 0.9)';
-    ctx.textAlign = 'center';
-    ctx.fillText('نقطه فرود جوهر', mirrorX, mirrorY - inkR - 5);
   }
   ctx.restore();
 }

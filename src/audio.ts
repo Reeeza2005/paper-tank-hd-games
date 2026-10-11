@@ -32,6 +32,14 @@ class SoundManager {
     return this.isMuted;
   }
 
+  public playFoldSweep() {
+    this.playPaperFold();
+  }
+
+  public playHitExplosion() {
+    this.playHit();
+  }
+
   // Sound of ballpoint pen pressing on paper
   public playPenDot() {
     if (this.isMuted) return;
@@ -196,6 +204,86 @@ class SoundManager {
     gain.connect(this.ctx.destination);
     osc.start();
     osc.stop(this.ctx.currentTime + 0.09);
+  }
+
+  // Shield / Bunker absorbing enemy shot
+  public playShieldAbsorb() {
+    if (this.isMuted) return;
+    this.initCtx();
+    if (!this.ctx) return;
+
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(440, this.ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(880, this.ctx.currentTime + 0.12);
+
+    gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.2);
+
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start();
+    osc.stop(this.ctx.currentTime + 0.22);
+  }
+
+  // Factory coin generation chime
+  public playCoinEarn() {
+    if (this.isMuted) return;
+    this.initCtx();
+    if (!this.ctx) return;
+
+    [987.77, 1318.51].forEach((freq, idx) => {
+      const osc = this.ctx!.createOscillator();
+      const gain = this.ctx!.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      const start = this.ctx!.currentTime + idx * 0.07;
+      gain.gain.setValueAtTime(0.2, start);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.22);
+      osc.connect(gain);
+      gain.connect(this.ctx!.destination);
+      osc.start(start);
+      osc.stop(start + 0.24);
+    });
+  }
+
+  // Cinematic heavy destruction explosion
+  public playCinematicBoom() {
+    if (this.isMuted) return;
+    this.initCtx();
+    if (!this.ctx) return;
+
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(140, this.ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(20, this.ctx.currentTime + 0.6);
+    gain.gain.setValueAtTime(0.6, this.ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.65);
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start();
+    osc.stop(this.ctx.currentTime + 0.68);
+  }
+
+  // Warning for illegal targeting or invalid action
+  public playWarningBeep() {
+    if (this.isMuted) return;
+    this.initCtx();
+    if (!this.ctx) return;
+
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(300, this.ctx.currentTime);
+    osc.frequency.setValueAtTime(200, this.ctx.currentTime + 0.08);
+    gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.18);
+    osc.connect(gain);
+    gain.connect(this.ctx.destination);
+    osc.start();
+    osc.stop(this.ctx.currentTime + 0.2);
   }
 
   // Victory fanfare

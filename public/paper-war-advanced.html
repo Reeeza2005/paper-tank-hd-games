@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>جنگ کاغذی پیشرفته - نوستالژی تا کردن برگه</title>
-  <meta name="description" content="بازی نوستالژیک جنگ کاغذی با کاغذ طبیعی، ادوات برداری باکیفیت، انیمیشن ذرات جوهر، دود و موج رودخانه">
+  <title>جنگ کاغذی پیشرفته - نقشه نامتقارن و تا کردن پویا</title>
+  <meta name="description" content="بازی استراتژیک جنگ کاغذی با خط تای نامتقارن، ابعاد کشویی، واحد کارخانه، کول‌داون شلیک و انیمیشن تخریب سینماتیک">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -18,9 +18,9 @@
       --primary-blue-glow: rgba(37, 99, 235, 0.35);
       --primary-red: #dc2626;
       --primary-red-glow: rgba(220, 38, 38, 0.35);
-      --glass-bg: rgba(255, 255, 255, 0.85);
-      --glass-border: rgba(255, 255, 255, 0.7);
-      --glass-shadow: 0 10px 30px -5px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(226, 232, 240, 0.6);
+      --glass-bg: rgba(255, 255, 255, 0.88);
+      --glass-border: rgba(255, 255, 255, 0.75);
+      --glass-shadow: 0 10px 30px -5px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(226, 232, 240, 0.65);
       --paper-cream: #faf7ee;
     }
 
@@ -34,31 +34,33 @@
 
     body {
       font-family: 'Vazirmatn', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: radial-gradient(circle at 50% 10%, #f1efe9 0%, #e5e0d4 100%);
+      background: radial-gradient(circle at 50% 12%, #f1efe8 0%, #e3ded1 100%);
       color: #1e293b;
       min-height: 100vh;
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 16px 20px;
+      padding: 14px 18px;
       overflow-x: hidden;
       position: relative;
     }
 
-    /* Ambient desk texture background */
     body::before {
       content: "";
       position: fixed;
       inset: 0;
-      background-image: radial-gradient(rgba(148, 163, 184, 0.15) 1px, transparent 1px);
-      background-size: 24px 24px;
+      background-image: 
+        radial-gradient(rgba(148, 163, 184, 0.18) 1px, transparent 1px),
+        radial-gradient(rgba(100, 116, 139, 0.05) 1px, transparent 1px);
+      background-size: 28px 28px, 14px 14px;
+      background-position: 0 0, 7px 7px;
       pointer-events: none;
       z-index: 0;
     }
 
     .app-container {
       width: 100%;
-      max-width: 1080px;
+      max-width: 1220px;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -66,48 +68,6 @@
       z-index: 1;
     }
 
-    /* Header Bar */
-    .header {
-      width: 100%;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 12px;
-      flex-wrap: wrap;
-      gap: 12px;
-      background: var(--glass-bg);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border: 1px solid var(--glass-border);
-      border-radius: 18px;
-      padding: 12px 20px;
-      box-shadow: var(--glass-shadow);
-    }
-
-    .header-info h1 {
-      font-size: 20px;
-      font-weight: 900;
-      color: #0f172a;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      letter-spacing: -0.02em;
-    }
-
-    .header-info p {
-      font-size: 12px;
-      color: #64748b;
-      margin-top: 2px;
-      font-weight: 500;
-    }
-
-    .header-actions {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    /* Glass Panels */
     .glass-panel {
       background: var(--glass-bg);
       backdrop-filter: blur(16px);
@@ -117,16 +77,56 @@
       box-shadow: var(--glass-shadow);
     }
 
-    /* Toolbar */
-    .toolbar {
+    .header {
       width: 100%;
-      padding: 10px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+      gap: 12px;
+      padding: 10px 18px;
+    }
+
+    .header-info h1 {
+      font-size: 19px;
+      font-weight: 900;
+      color: #0f172a;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      letter-spacing: -0.02em;
+    }
+
+    .header-info p {
+      font-size: 11.5px;
+      color: #64748b;
+      margin-top: 2px;
+      font-weight: 600;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .toolbar-container {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .toolbar-row {
+      width: 100%;
+      padding: 8px 14px;
       display: flex;
       flex-wrap: wrap;
       align-items: center;
       justify-content: space-between;
-      gap: 10px;
-      margin-bottom: 10px;
+      gap: 8px;
     }
 
     .toolbar-group {
@@ -138,30 +138,28 @@
 
     .toolbar-label {
       font-size: 11px;
-      font-weight: 700;
+      font-weight: 800;
       color: #475569;
       display: flex;
       align-items: center;
       gap: 4px;
-      margin-left: 2px;
     }
 
-    /* Buttons & Form Elements */
     button, select, input[type="range"] {
       font-family: inherit;
       font-size: 12px;
       font-weight: 700;
-      padding: 7px 14px;
-      border-radius: 10px;
-      border: 1px solid rgba(203, 213, 225, 0.8);
-      background: rgba(255, 255, 255, 0.9);
+      padding: 6px 12px;
+      border-radius: 9px;
+      border: 1px solid rgba(203, 213, 225, 0.85);
+      background: rgba(255, 255, 255, 0.95);
       color: #334155;
       cursor: pointer;
       transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 6px;
+      gap: 5px;
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
       outline: none;
     }
@@ -197,18 +195,18 @@
       box-shadow: 0 6px 16px var(--primary-blue-glow);
     }
 
-    button.danger {
-      background: linear-gradient(135deg, #dc2626, #b91c1c);
-      color: #ffffff;
-      border-color: #b91c1c;
-      box-shadow: 0 4px 12px var(--primary-red-glow);
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+      transform: none !important;
+      box-shadow: none !important;
     }
 
     select {
-      padding-inline-end: 24px;
+      padding-inline-end: 22px;
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
       background-repeat: no-repeat;
-      background-position: left 8px center;
+      background-position: left 7px center;
       appearance: none;
       -webkit-appearance: none;
     }
@@ -222,42 +220,40 @@
       border-radius: 4px;
     }
 
-    /* Status Row */
     .status-row {
       width: 100%;
       display: grid;
       grid-template-columns: 1fr auto 1fr;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
       margin-bottom: 10px;
     }
 
     .player-card {
-      padding: 8px 16px;
+      padding: 8px 14px;
       border-radius: 14px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       transition: all 0.3s ease;
       position: relative;
-      overflow: hidden;
     }
 
     .player-card.p1 {
-      border: 1.5px solid rgba(59, 130, 246, 0.4);
-      background: linear-gradient(135deg, rgba(239, 246, 255, 0.9), rgba(219, 234, 254, 0.7));
+      border: 1.5px solid rgba(59, 130, 246, 0.45);
+      background: linear-gradient(135deg, rgba(239, 246, 255, 0.95), rgba(219, 234, 254, 0.75));
       color: #1e3a8a;
     }
 
     .player-card.p2 {
-      border: 1.5px solid rgba(239, 68, 68, 0.4);
-      background: linear-gradient(135deg, rgba(254, 242, 242, 0.9), rgba(254, 226, 226, 0.7));
+      border: 1.5px solid rgba(239, 68, 68, 0.45);
+      background: linear-gradient(135deg, rgba(254, 242, 242, 0.95), rgba(254, 226, 226, 0.75));
       color: #7f1d1d;
     }
 
     .player-card.active-turn {
       box-shadow: 0 0 0 2.5px currentColor, 0 8px 20px rgba(0, 0, 0, 0.08);
-      transform: scale(1.015);
+      transform: scale(1.012);
     }
 
     .player-title {
@@ -271,58 +267,64 @@
     .player-stats {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
       font-size: 13px;
       font-weight: 800;
     }
 
     .coins-badge {
       color: #b45309;
-      background: rgba(254, 243, 199, 0.85);
-      border: 1px solid rgba(251, 191, 36, 0.5);
-      padding: 2px 8px;
+      background: rgba(254, 243, 199, 0.9);
+      border: 1px solid rgba(251, 191, 36, 0.6);
+      padding: 2px 7px;
       border-radius: 8px;
       display: flex;
       align-items: center;
       gap: 4px;
     }
 
-    /* Wind Widget with Dynamic Compass */
+    .factory-income-pill {
+      background: rgba(220, 252, 231, 0.9);
+      color: #15803d;
+      border: 1px solid rgba(134, 239, 172, 0.8);
+      padding: 2px 6px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 800;
+    }
+
     .wind-widget {
-      padding: 6px 14px;
-      border-radius: 14px;
+      padding: 6px 12px;
+      border-radius: 12px;
       display: flex;
       align-items: center;
       gap: 8px;
       background: linear-gradient(135deg, rgba(240, 249, 255, 0.95), rgba(224, 242, 254, 0.85));
       border: 1px solid rgba(125, 211, 252, 0.6);
-      box-shadow: 0 4px 12px rgba(14, 165, 233, 0.1);
       font-size: 12px;
       font-weight: 800;
       color: #0369a1;
     }
 
     .wind-compass {
-      width: 24px;
-      height: 24px;
+      width: 22px;
+      height: 22px;
       border-radius: 50%;
       background: #ffffff;
       border: 1.5px solid #38bdf8;
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 2px 6px rgba(14, 165, 233, 0.2);
+      box-shadow: 0 2px 5px rgba(14, 165, 233, 0.2);
       transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
     }
 
     .wind-arrow-svg {
-      width: 14px;
-      height: 14px;
+      width: 13px;
+      height: 13px;
       fill: #0284c7;
-      transition: transform 0.3s ease;
     }
 
-    /* Shop Container (Phase 1) */
     .shop-box {
       width: 100%;
       padding: 12px 16px;
@@ -341,7 +343,7 @@
 
     .shop-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
       gap: 10px;
     }
 
@@ -353,10 +355,9 @@
       cursor: pointer;
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 5px;
       transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
       position: relative;
-      overflow: hidden;
     }
 
     .unit-card:hover {
@@ -379,20 +380,20 @@
     }
 
     .unit-card-name {
-      font-size: 14px;
+      font-size: 13.5px;
       font-weight: 800;
       color: #0f172a;
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 5px;
     }
 
     .unit-card-cost {
       font-size: 13px;
       font-weight: 900;
       color: #b45309;
-      background: rgba(254, 243, 199, 0.8);
-      padding: 2px 8px;
+      background: rgba(254, 243, 199, 0.85);
+      padding: 2px 7px;
       border-radius: 6px;
     }
 
@@ -411,7 +412,6 @@
       gap: 4px;
     }
 
-    /* Firing Selection Bar (Phase 2) */
     .firing-bar {
       width: 100%;
       padding: 10px 16px;
@@ -430,7 +430,15 @@
       flex-wrap: wrap;
     }
 
-    /* Board Container with Realistic Paper Styling */
+    .cooldown-badge {
+      font-size: 10px;
+      color: #ea580c;
+      background: #ffedd5;
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-weight: 800;
+    }
+
     .board-outer {
       position: relative;
       display: flex;
@@ -438,22 +446,56 @@
       align-items: center;
       margin-bottom: 12px;
       perspective: 1400px;
+      max-width: 100%;
     }
 
     .board-wrapper {
       position: relative;
       background-color: var(--paper-cream);
-      border-radius: 18px;
       box-shadow:
-        0 20px 45px -10px rgba(15, 23, 42, 0.18),
-        0 8px 18px -4px rgba(15, 23, 42, 0.1),
-        inset 0 0 0 1px rgba(214, 206, 187, 0.6),
-        inset 0 1px 3px rgba(255, 255, 255, 0.9);
+        0 22px 50px -10px rgba(15, 23, 42, 0.2),
+        0 8px 20px -4px rgba(15, 23, 42, 0.12),
+        inset 0 0 0 1px rgba(214, 206, 187, 0.65),
+        inset 0 1px 4px rgba(255, 255, 255, 0.9);
       overflow: hidden;
       transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1), height 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     }
 
-    /* Paper fiber grain subtle overlay via CSS */
+    .board-contour-organic {
+      border-radius: 20px 8px 24px 14px;
+      clip-path: polygon(
+        0% 8px, 4% 0%, 96% 2px, 100% 12px,
+        99% 94%, 97% 100%, 3% 99%, 0% 92%
+      );
+    }
+
+    .board-contour-torn {
+      border-radius: 12px;
+      border-left: 5px dashed rgba(160, 140, 110, 0.4);
+    }
+
+    .spiral-binder {
+      position: absolute;
+      top: 15px;
+      bottom: 15px;
+      right: 12px;
+      width: 14px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      pointer-events: none;
+      z-index: 6;
+      opacity: 0.65;
+    }
+
+    .spiral-hole {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: radial-gradient(circle, #e2e8f0 30%, #cbd5e1 90%);
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25), 0 1px 0 rgba(255, 255, 255, 0.8);
+    }
+
     .board-wrapper::before {
       content: "";
       position: absolute;
@@ -467,29 +509,6 @@
       z-index: 2;
     }
 
-    /* 3D Central Fold Crease Layer */
-    .crease-line {
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      left: 50%;
-      width: 28px;
-      transform: translateX(-50%);
-      pointer-events: none;
-      z-index: 5;
-      background: linear-gradient(
-        to right,
-        transparent 0%,
-        rgba(0, 0, 0, 0.02) 20%,
-        rgba(0, 0, 0, 0.08) 45%,
-        rgba(255, 255, 255, 0.5) 50%,
-        rgba(0, 0, 0, 0.12) 55%,
-        rgba(0, 0, 0, 0.03) 80%,
-        transparent 100%
-      );
-      box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.04);
-    }
-
     canvas {
       display: block;
       width: 100%;
@@ -499,89 +518,105 @@
       z-index: 1;
     }
 
-    /* 3D Paper Folding Sheet Animation */
     .fold-overlay {
       display: none;
       position: absolute;
-      top: 0;
-      bottom: 0;
-      width: 50%;
-      background: linear-gradient(to right, #faf7ee, #f3ede0);
+      inset: 0;
+      background: linear-gradient(135deg, rgba(250, 247, 238, 0.96), rgba(243, 237, 224, 0.94));
       z-index: 25;
-      box-shadow: 0 0 40px rgba(15, 23, 42, 0.35);
-      border: 1px solid rgba(203, 213, 225, 0.5);
+      box-shadow: 0 0 50px rgba(15, 23, 42, 0.4);
       backface-visibility: hidden;
       -webkit-backface-visibility: hidden;
+      pointer-events: none;
     }
 
-    .fold-overlay.p1 {
-      left: 0;
-      transform-origin: right center;
-      animation: flipP1 1.4s cubic-bezier(0.45, 0.05, 0.55, 0.95) forwards;
+    .shake-fx {
+      animation: screenShake 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
     }
 
-    .fold-overlay.p2 {
-      right: 0;
-      transform-origin: left center;
-      animation: flipP2 1.4s cubic-bezier(0.45, 0.05, 0.55, 0.95) forwards;
+    @keyframes screenShake {
+      10%, 90% { transform: translate3d(-3px, 1px, 0); }
+      20%, 80% { transform: translate3d(4px, -2px, 0); }
+      30%, 50%, 70% { transform: translate3d(-5px, 3px, 0); }
+      40%, 60% { transform: translate3d(5px, -1px, 0); }
     }
 
-    @keyframes flipP1 {
-      0% {
-        transform: rotateY(0deg);
-        filter: brightness(1);
-      }
-      45% {
-        transform: rotateY(178deg);
-        filter: brightness(0.92);
-      }
-      65% {
-        transform: rotateY(178deg);
-        filter: brightness(0.92);
-      }
-      100% {
-        transform: rotateY(0deg);
-        filter: brightness(1);
-      }
+    .cinematic-killcam {
+      position: absolute;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.82);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 45;
+      animation: cinematicFadeIn 0.3s ease-out;
+      color: #ffffff;
+      text-align: center;
+      padding: 20px;
     }
 
-    @keyframes flipP2 {
-      0% {
-        transform: rotateY(0deg);
-        filter: brightness(1);
-      }
-      45% {
-        transform: rotateY(-178deg);
-        filter: brightness(0.92);
-      }
-      65% {
-        transform: rotateY(-178deg);
-        filter: brightness(0.92);
-      }
-      100% {
-        transform: rotateY(0deg);
-        filter: brightness(1);
-      }
+    @keyframes cinematicFadeIn {
+      from { opacity: 0; transform: scale(0.96); }
+      to { opacity: 1; transform: scale(1); }
     }
 
-    /* Toast Notification */
+    .cinematic-badge {
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      color: #ef4444;
+      background: rgba(239, 68, 68, 0.18);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      padding: 4px 14px;
+      border-radius: 20px;
+      margin-bottom: 12px;
+      text-transform: uppercase;
+    }
+
+    .cinematic-visual {
+      font-size: 58px;
+      margin-bottom: 12px;
+      animation: pulsePop 0.8s infinite alternate cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    @keyframes pulsePop {
+      from { transform: scale(1); }
+      to { transform: scale(1.18); }
+    }
+
+    .cinematic-title {
+      font-size: 24px;
+      font-weight: 900;
+      margin-bottom: 6px;
+      text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+    }
+
+    .cinematic-subtitle {
+      font-size: 14px;
+      color: #cbd5e1;
+      font-weight: 600;
+    }
+
     .toast {
       position: absolute;
       top: 16px;
       left: 50%;
       transform: translateX(-50%) translateY(-10px);
-      background: rgba(15, 23, 42, 0.92);
+      background: rgba(15, 23, 42, 0.94);
       color: #ffffff;
       padding: 8px 22px;
       border-radius: 30px;
       font-size: 13px;
       font-weight: 700;
       pointer-events: none;
-      z-index: 40;
+      z-index: 50;
       opacity: 0;
       transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
       box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
-      border: 1px solid rgba(255, 255, 255, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.18);
       backdrop-filter: blur(10px);
       display: flex;
       align-items: center;
@@ -593,45 +628,32 @@
       transform: translateX(-50%) translateY(0);
     }
 
-    /* Modals */
     .modal {
       display: none;
       position: fixed;
       inset: 0;
-      background: rgba(15, 23, 42, 0.5);
+      background: rgba(15, 23, 42, 0.55);
       backdrop-filter: blur(8px);
       -webkit-backdrop-filter: blur(8px);
-      z-index: 60;
+      z-index: 70;
       align-items: center;
       justify-content: center;
       padding: 16px;
-      animation: fadeIn 0.2s ease-out;
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; }
-      to { opacity: 1; }
     }
 
     .modal-card {
-      background: rgba(255, 255, 255, 0.95);
+      background: rgba(255, 255, 255, 0.96);
       backdrop-filter: blur(20px);
-      border: 1px solid rgba(255, 255, 255, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.85);
       border-radius: 20px;
-      padding: 24px;
-      max-width: 480px;
+      padding: 22px;
+      max-width: 490px;
       width: 100%;
-      box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.25);
-      animation: popIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
-    }
-
-    @keyframes popIn {
-      from { transform: scale(0.95); opacity: 0; }
-      to { transform: scale(1); opacity: 1; }
+      box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.3);
     }
 
     .modal-card h3 {
-      font-size: 18px;
+      font-size: 17px;
       font-weight: 900;
       color: #0f172a;
       margin-bottom: 6px;
@@ -641,9 +663,9 @@
     }
 
     .modal-card p {
-      font-size: 13px;
+      font-size: 12.5px;
       color: #64748b;
-      margin-bottom: 16px;
+      margin-bottom: 14px;
     }
 
     .upgrade-option {
@@ -651,7 +673,7 @@
       justify-content: space-between;
       align-items: center;
       background: #f8fafc;
-      padding: 12px 14px;
+      padding: 11px 13px;
       border-radius: 12px;
       border: 1px solid #e2e8f0;
       transition: all 0.2s ease;
@@ -666,9 +688,6 @@
       font-size: 13px;
       font-weight: 800;
       color: #0f172a;
-      display: flex;
-      align-items: center;
-      gap: 6px;
     }
 
     .upgrade-info p {
@@ -677,21 +696,19 @@
       margin: 2px 0 0;
     }
 
-    /* Micro-badges for terrain */
     .guide-box {
       background: #f8fafc;
       border: 1px solid #e2e8f0;
       border-radius: 12px;
-      padding: 14px;
+      padding: 13px;
       font-size: 12px;
       line-height: 1.8;
       color: #334155;
     }
 
-    @media (max-width: 768px) {
-      .header h1 { font-size: 17px; }
+    @media (max-width: 820px) {
       .status-row { grid-template-columns: 1fr; }
-      .toolbar { flex-direction: column; align-items: stretch; }
+      .toolbar-row { flex-direction: column; align-items: stretch; }
       .toolbar-group { justify-content: center; }
     }
   </style>
@@ -699,77 +716,98 @@
 <body>
 
   <div class="app-container">
-    <!-- Top Header Bar -->
-    <header class="header">
+    <header class="glass-panel header">
       <div class="header-info">
         <h1>
-          <span>📄 جنگ کاغذی پیشرفته</span>
-          <span style="font-size: 12px; font-weight: 700; color: #2563eb; background: #dbeafe; padding: 2px 8px; border-radius: 6px;">نسخه باکیفیت برداری</span>
+          <span>📄 جنگ کاغذی پیشرفته: نقشه نامتقارن و خط تای متغیر</span>
+          <span style="font-size: 11px; font-weight: 800; color: #16a34a; background: #dcfce7; padding: 2px 8px; border-radius: 6px;">نسخه استراتژیک</span>
         </h1>
-        <p>نوستالژی تا کردن برگه دفتر با شبیه‌سازی ذرات جوهر، فیزیک باد، انیمیشن موج آب و صدای واقع‌گرایانه</p>
+        <p>بدون سنگر مصنوعی • نقشه با گوشه‌های ارگانیک • خط تای مورب و نامتقارن • کارخانه سکه‌ساز و استراحت شلیک</p>
       </div>
       <div class="header-actions">
         <button id="btnSound" onclick="toggleSound()">
           <span>🔊</span> <span id="soundLabel">صدا: روشن</span>
         </button>
         <button onclick="openHelpModal()">
-          <span>📖</span> <span>راهنمای نبرد</span>
+          <span>📖</span> <span>راهنما و قوانین</span>
         </button>
       </div>
     </header>
 
-    <!-- Main Toolbar -->
-    <div class="glass-panel toolbar">
-      <div class="toolbar-group">
-        <button id="btnModeLocal" class="active" onclick="setMode('local')">
-          <span>👥</span> <span>دو نفره (یک سیستم)</span>
-        </button>
-        <button id="btnModeAI" onclick="setMode('ai')">
-          <span>🤖</span> <span>نبرد با هوش مصنوعی</span>
-        </button>
-        <button id="btnModeOnline" onclick="openOnlineModal()">
-          <span>🌐</span> <span>آنلاین P2P (PeerJS)</span>
-        </button>
+    <div class="toolbar-container">
+      <div class="glass-panel toolbar-row">
+        <div class="toolbar-group">
+          <button id="btnModeLocal" class="active" onclick="setMode('local')">
+            <span>👥</span> <span>دو نفره (یک سیستم)</span>
+          </button>
+          <button id="btnModeAI" onclick="setMode('ai')">
+            <span>🤖</span> <span>نبرد هوش مصنوعی</span>
+          </button>
+          <button id="btnModeOnline" onclick="openOnlineModal()">
+            <span>🌐</span> <span>آنلاین P2P (PeerJS)</span>
+          </button>
+        </div>
+
+        <div class="toolbar-group">
+          <span class="toolbar-label">📐 سبک خط تا (Fold Line):</span>
+          <select id="foldSelect" onchange="changeFoldStyle(this.value)">
+            <option value="center">✂ عمودی مستقیم (مرکز ۵۰٪)</option>
+            <option value="diagonal_right">📐 مورب مایل راست (+۱۲°)</option>
+            <option value="diagonal_left">📐 مورب مایل چپ (-۱۲°)</option>
+            <option value="asym_p1">⚔ جابه‌جا نامتقارن (۴۲٪ زمین P1)</option>
+            <option value="asym_p2">⚔ جابه‌جا نامتقارن (۵۸٪ زمین P2)</option>
+          </select>
+
+          <span class="toolbar-label">💰 سرمایه اولیه:</span>
+          <select id="budgetSelect" onchange="changeBudget(this.value)">
+            <option value="600">۶۰۰ 🪙 (تاکتیکی فشرده)</option>
+            <option value="1000" selected>۱۰۰۰ 🪙 (استاندارد)</option>
+            <option value="1500">۱۵۰۰ 🪙 (پیشرفته)</option>
+            <option value="2500">۲۵۰۰ 🪙 (لشکرکشی سنگین)</option>
+          </select>
+        </div>
       </div>
 
-      <div class="toolbar-group">
-        <span class="toolbar-label">ابعاد برگه:</span>
-        <select id="sizeSelect" onchange="changeBoardSize(this.value)">
-          <option value="standard">استاندارد (۸۸۰×۵۰۰)</option>
-          <option value="wide">عریض (۱۰۴۰×۵۲۰)</option>
-        </select>
+      <div class="glass-panel toolbar-row">
+        <div class="toolbar-group">
+          <span class="toolbar-label">📏 اسلایدر ابعاد زمین (کشویی):</span>
+          <input type="range" id="sizeSlider" min="760" max="1180" step="30" value="920" oninput="changeBoardDynamicSize(this.value)" style="width: 110px;" title="تنظیم ابعاد زمین از کوچک تا بزرگ" />
+          <span id="boardDimensionsText" style="font-size: 11px; font-weight: 800; color: #2563eb; width: 68px;">۹۲۰×۵۱۰</span>
 
-        <span class="toolbar-label">مقیاس ادوات:</span>
-        <input type="range" id="scaleSlider" min="0.75" max="1.45" step="0.05" value="1.0" oninput="changeUnitScale(this.value)" style="width: 75px;" title="تنظیم اندازه نیروها" />
+          <span class="toolbar-label" style="margin-right: 6px;">فرمت برگه:</span>
+          <select id="paperContourSelect" onchange="changeContour(this.value)">
+            <option value="organic">🍃 گوشه‌های ارگانیک نامتقارن</option>
+            <option value="torn">📑 برگه دفتر سیمی و پانچ</option>
+            <option value="clean">📄 مستطیل خط‌کشی‌شده</option>
+          </select>
+        </div>
 
-        <span class="toolbar-label">نوع زمین:</span>
-        <select id="terrainSelect" onchange="changeTerrain(this.value)">
-          <option value="plain">📄 کاغذ سفید ساده</option>
-          <option value="river">🌊 پهنه رودخانه پویا (قایق)</option>
-          <option value="obstacles">⛰️ سنگرهای ضد گلوله</option>
-        </select>
+        <div class="toolbar-group">
+          <span class="toolbar-label">مقیاس ادوات:</span>
+          <input type="range" id="scaleSlider" min="0.75" max="1.4" step="0.05" value="1.0" oninput="changeUnitScale(this.value)" style="width: 70px;" />
 
-        <button id="btnWind" onclick="toggleWind()">
-          <span>💨</span> <span id="windBtnText">باد: فعال</span>
-        </button>
-        <button id="btnHide" onclick="toggleHide()">
-          <span>🙈</span> <span id="hideBtnText">پوشش چینش</span>
-        </button>
-        <button onclick="resetGame()" title="شروع مجدد بازی">
-          <span>🔄</span> <span>از نو</span>
-        </button>
+          <button id="btnWind" onclick="toggleWind()">
+            <span>💨</span> <span id="windBtnText">باد: روشن</span>
+          </button>
+          <button id="btnHide" onclick="toggleHide()">
+            <span>🙈</span> <span id="hideBtnText">پوشش چینش</span>
+          </button>
+          <button onclick="resetGame()" title="شروع مجدد">
+            <span>🔄</span> <span>از نو</span>
+          </button>
+        </div>
       </div>
     </div>
 
-    <!-- Status Row -->
     <div class="status-row">
       <div id="p1Badge" class="player-card p1 active-turn">
         <div class="player-title">
           <span>🔵</span> <span>بازیکن ۱ (آبی)</span>
+          <span id="p1FactoryIncome" class="factory-income-pill" style="display: none;">+۰🪙 درآمد</span>
         </div>
         <div class="player-stats">
           <span class="coins-badge"><span id="p1CoinsText">۱۰۰۰</span> 🪙</span>
-          <span id="p1UnitsText" style="font-size: 11px; opacity: 0.85;">۰ زنده</span>
+          <span id="p1UnitsText" style="font-size: 11px; opacity: 0.85;">۰ نیرو</span>
         </div>
       </div>
 
@@ -786,18 +824,18 @@
       <div id="p2Badge" class="player-card p2">
         <div class="player-title">
           <span>🔴</span> <span>بازیکن ۲ (قرمز)</span>
+          <span id="p2FactoryIncome" class="factory-income-pill" style="display: none;">+۰🪙 درآمد</span>
         </div>
         <div class="player-stats">
           <span class="coins-badge"><span id="p2CoinsText">۱۰۰۰</span> 🪙</span>
-          <span id="p2UnitsText" style="font-size: 11px; opacity: 0.85;">۰ زنده</span>
+          <span id="p2UnitsText" style="font-size: 11px; opacity: 0.85;">۰ نیرو</span>
         </div>
       </div>
     </div>
 
-    <!-- Shop Container (Phase 1: Deployment) -->
     <div id="shopBox" class="glass-panel shop-box">
       <div class="shop-header">
-        <span id="shopTitle">🛒 انبار تسلیحات (نوبت استقرار بازیکن ۱ 🔵) - برای ارتقای توانایی‌ها روی ادوات کلیک کنید</span>
+        <span id="shopTitle">🛒 انبار تسلیحات و صنایع (نوبت استقرار بازیکن ۱ 🔵)</span>
         <button class="primary" onclick="finishDeployment()">
           <span>تکمیل چینش و آغاز نبرد ⚔️</span>
         </button>
@@ -805,11 +843,11 @@
       <div class="shop-grid">
         <div class="unit-card" id="card_soldier" onclick="selectBuyUnit('soldier')">
           <div class="unit-card-top">
-            <span class="unit-card-name">🪖 سرباز خط‌شکن (HP: ۱)</span>
+            <span class="unit-card-name">🪖 سرباز تک‌تیرانداز (HP: ۱)</span>
             <span class="unit-card-cost">۱۰۰ 🪙</span>
           </div>
-          <div class="unit-card-desc">سایز مینیاتوری و هدف‌گیری دشوار، گلوله متمرکز سوزنی</div>
-          <div class="unit-card-reward">🎁 پاداش انهدام: +۳۳ سکه (۱/۳ قیمت)</div>
+          <div class="unit-card-desc">سایز مینیاتوری و فرار از دید، شلیک نقطه‌ای دقیق</div>
+          <div class="unit-card-reward">🎁 غنیمت انهدام: +۳۳ سکه (۱/۳)</div>
         </div>
 
         <div class="unit-card selected" id="card_tank" onclick="selectBuyUnit('tank')">
@@ -817,17 +855,8 @@
             <span class="unit-card-name">🛡️ تانک زره‌پوش (HP: ۲)</span>
             <span class="unit-card-cost">۲۵۰ 🪙</span>
           </div>
-          <div class="unit-card-desc">شنی سنگین، بدنه پولادین زاویه‌دار و شلیک جوهر پرقدرت</div>
-          <div class="unit-card-reward">🎁 پاداش انهدام: +۸۳ سکه (۱/۳ قیمت)</div>
-        </div>
-
-        <div class="unit-card" id="card_boat" onclick="selectBuyUnit('boat')">
-          <div class="unit-card-top">
-            <span class="unit-card-name">🛥️ قایق تندرو (HP: ۲)</span>
-            <span class="unit-card-cost">۲۰۰ 🪙</span>
-          </div>
-          <div class="unit-card-desc">ویژه استقرار در رودخانه خروشان، ایجاد امواج و شلیک پایدار</div>
-          <div class="unit-card-reward">🎁 پاداش انهدام: +۶۶ سکه (۱/۳ قیمت)</div>
+          <div class="unit-card-desc">شنی سنگین، شلیک جوهر پرقدرت (نیازمند ۱ نوبت خنک‌شدن)</div>
+          <div class="unit-card-reward">🎁 غنیمت انهدام: +۸۳ سکه (۱/۳)</div>
         </div>
 
         <div class="unit-card" id="card_plane" onclick="selectBuyUnit('plane')">
@@ -835,29 +864,59 @@
             <span class="unit-card-name">✈️ جنگنده مافوق‌صوت (HP: ۲)</span>
             <span class="unit-card-cost">۴۰۰ 🪙</span>
           </div>
-          <div class="unit-card-desc">معلق بر فراز آسمان با سایه نرم و شعاع بمباران جوهری مهلک</div>
-          <div class="unit-card-reward">🎁 پاداش انهدام: +۱۳۳ سکه (۱/۳ قیمت)</div>
+          <div class="unit-card-desc">شناور بر فراز نقشه با شعاع بمباران مهلک و سایه عمیق</div>
+          <div class="unit-card-reward">🎁 غنیمت انهدام: +۱۳۳ سکه (۱/۳)</div>
+        </div>
+
+        <div class="unit-card" id="card_boat" onclick="selectBuyUnit('boat')">
+          <div class="unit-card-top">
+            <span class="unit-card-name">🛥️ قایق رزمی (HP: ۲)</span>
+            <span class="unit-card-cost">۲۰۰ 🪙</span>
+          </div>
+          <div class="unit-card-desc">ویژه پهنه رودخانه پویا، ترکش متوسط و سرعت مانور</div>
+          <div class="unit-card-reward">🎁 غنیمت انهدام: +۶۶ سکه (۱/۳)</div>
+        </div>
+
+        <div class="unit-card" id="card_factory" onclick="selectBuyUnit('factory')" style="border-color: #86efac; background: #f0fdf4;">
+          <div class="unit-card-top">
+            <span class="unit-card-name" style="color: #166534;">🏭 کارخانه تدارکات (HP: ۳)</span>
+            <span class="unit-card-cost" style="color: #15803d; background: #dcfce7;">۳۵۰ 🪙</span>
+          </div>
+          <div class="unit-card-desc" style="color: #14532d;">تولید اقتصادی: ۵۰+ سکه سود در آغاز هر نوبت شما (غیرمسلح)</div>
+          <div class="unit-card-reward" style="color: #b45309;">🎁 غنیمت انهدام: +۱۱۶ سکه (۱/۳)</div>
         </div>
       </div>
     </div>
 
-    <!-- Firing Selection Bar (Phase 2: Battle) -->
     <div id="firingBar" class="glass-panel firing-bar" style="display: none;">
       <div class="firing-units-wrapper">
-        <span style="font-size: 13px; font-weight: 800; color: #0f172a; margin-left: 4px;">🎯 انتخاب واحد شلیک‌کننده:</span>
+        <span style="font-size: 13px; font-weight: 800; color: #0f172a;">🎯 انتخاب واحد شلیک‌کننده:</span>
         <div id="firingUnitsContainer" style="display: flex; gap: 8px; flex-wrap: wrap;"></div>
       </div>
       <div style="font-size: 12px; color: #0369a1; font-weight: 800; background: #e0f2fe; padding: 4px 12px; border-radius: 20px;">
-        💡 با ماوس روی نیمه زمین خودت کلیک کن تا برگه تا بشه و جوهر شلیک کنه!
+        💡 روی نیمه خودتان کلیک کنید تا کاغذ تا بخورد. هر واحد پس از شلیک ۱ نوبت استراحت می‌کند!
       </div>
     </div>
 
-    <!-- Board Wrapper -->
     <div class="board-outer">
-      <div class="board-wrapper" id="boardWrapper" style="width: 880px; height: 500px;">
-        <canvas id="gameCanvas" width="880" height="500"></canvas>
-        <div class="crease-line"></div>
+      <div class="board-wrapper board-contour-organic" id="boardWrapper" style="width: 920px; height: 510px;">
+        <div id="spiralBinder" class="spiral-binder" style="display: none;">
+          <div class="spiral-hole"></div><div class="spiral-hole"></div>
+          <div class="spiral-hole"></div><div class="spiral-hole"></div>
+          <div class="spiral-hole"></div><div class="spiral-hole"></div>
+          <div class="spiral-hole"></div><div class="spiral-hole"></div>
+        </div>
+
+        <canvas id="gameCanvas" width="920" height="510"></canvas>
         <div id="foldOverlay" class="fold-overlay"></div>
+
+        <div id="cinematicKillcam" class="cinematic-killcam">
+          <div class="cinematic-badge">CRITICAL HIT • هدف نابود شد</div>
+          <div id="cinematicIcon" class="cinematic-visual">💥</div>
+          <div id="cinematicTitle" class="cinematic-title">انهدام حماسی تانک زره‌پوش!</div>
+          <div id="cinematicDesc" class="cinematic-subtitle">توسط بمباران هوایی • +۸۳ سکه غنیمت جنگی واریز شد</div>
+        </div>
+
         <div id="toast" class="toast">
           <span id="toastIcon">🎯</span>
           <span id="toastMsg">پیام بازی</span>
@@ -866,13 +925,12 @@
     </div>
   </div>
 
-  <!-- Upgrade Modal -->
   <div id="upgradeModal" class="modal">
     <div class="modal-card">
       <h3 id="upgradeTitle">🛠️ ارتقای رزمی واحد نظامی</h3>
       <p id="upgradeSubtitle">توانمندی‌های این واحد را برای تسلط در نبرد ارتقا دهید:</p>
 
-      <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px;">
+      <div style="display: flex; flex-direction: column; gap: 9px; margin-bottom: 14px;">
         <div class="upgrade-option">
           <div class="upgrade-info">
             <h4>❤️ زره تقویتی (+۱ جان/HP)</h4>
@@ -902,55 +960,45 @@
     </div>
   </div>
 
-  <!-- PeerJS Multiplayer Modal -->
   <div id="onlineModal" class="modal">
     <div class="modal-card">
       <h3>🌐 نبرد آنلاین P2P (بدون نیاز به سرور)</h3>
-      <p>با فناوری WebRTC PeerJS مستقیماً و با پینگ صفر با دوست خود مسابقه دهید:</p>
+      <p>با فناوری WebRTC مستقیماً و با پینگ صفر با دوست خود مسابقه دهید:</p>
 
       <div class="guide-box" style="margin-bottom: 12px; background: #eff6ff; border-color: #bfdbfe;">
         <div style="font-weight: 800; color: #1e40af; margin-bottom: 6px;">میزبان بازی (بازیکن ۱ 🔵)</div>
         <button class="primary" style="width: 100%;" onclick="createRoom()">ساخت اتاق نبرد 🎲</button>
-        <div id="roomCodeDisplay" style="display: none; margin-top: 10px; font-weight: 900; font-size: 16px; color: #1d4ed8; text-align: center; background: #ffffff; padding: 8px; border-radius: 8px; border: 1.5px dashed #3b82f6; user-select: all;"></div>
+        <div id="roomCodeDisplay" style="display: none; margin-top: 8px; font-weight: 900; font-size: 15px; color: #1d4ed8; text-align: center; background: #ffffff; padding: 6px; border-radius: 8px; border: 1.5px dashed #3b82f6; user-select: all;"></div>
       </div>
 
       <div class="guide-box" style="margin-bottom: 12px;">
         <div style="font-weight: 800; color: #475569; margin-bottom: 6px;">پیوستن به دوست (بازیکن ۲ 🔴)</div>
         <div style="display: flex; gap: 8px;">
-          <input type="text" id="joinCodeInput" placeholder="کد اتاق دوستتان را بنویسید..." style="flex: 1; padding: 8px 12px; border-radius: 8px; border: 1px solid #cbd5e1; font-family: inherit; font-size: 13px;" />
+          <input type="text" id="joinCodeInput" placeholder="کد اتاق دوستتان را بنویسید..." style="flex: 1; padding: 7px 10px; border-radius: 8px; border: 1px solid #cbd5e1; font-family: inherit; font-size: 12px;" />
           <button class="primary" onclick="joinRoom()">ورود 🔗</button>
         </div>
       </div>
 
-      <div id="peerStatus" style="font-size: 13px; font-weight: 700; color: #ea580c; text-align: center; margin-bottom: 12px;"></div>
+      <div id="peerStatus" style="font-size: 12px; font-weight: 700; color: #ea580c; text-align: center; margin-bottom: 10px;"></div>
       <button style="width: 100%;" onclick="closeOnlineModal()">انصراف و بستن</button>
     </div>
   </div>
 
-  <!-- Help / Instructions Modal -->
   <div id="helpModal" class="modal">
     <div class="modal-card">
-      <h3>📖 راهنمای قوانین و مکانیک جنگ کاغذی</h3>
-      <div class="guide-box" style="margin-bottom: 16px;">
-        <p><strong>۱. نوستالژی تا کردن برگه:</strong> در بازی سنتی با خودکار روی نیمه خودتان نقطه پررنگ می‌کشیدید و برگه را تا می‌کردید تا جوهر به زمین حریف منتقل شود.</p>
-        <p style="margin-top: 6px;"><strong>۲. مقیاس و ادوات نظامی:</strong></p>
-        <ul style="padding-right: 18px; margin-top: 4px;">
-          <li>🪖 <strong>سرباز:</strong> ۱۰۰ سکه، ۱ جان (هدف‌گیری سخت)</li>
-          <li>🛡️ <strong>تانک:</strong> ۲۵۰ سکه، ۲ جان (ستون فقرات ارتش)</li>
-          <li>🛥️ <strong>قایق جنگی:</strong> ۲۰۰ سکه، ۲ جان (ویژه عملیات در پهنه آبی)</li>
-          <li>✈️ <strong>هواپیما:</strong> ۴۰۰ سکه، ۲ جان (بمباران با شعاع جوهر بزرگ)</li>
-        </ul>
-        <p style="margin-top: 6px;"><strong>۳. غنائم جنگی ۱/۳:</strong> با نابودی کامل هر هدف، یک‌سوم قیمت خرید آن به خزانه شما واریز می‌شود.</p>
-        <p style="margin-top: 6px;"><strong>۴. ارتقای ادوات:</strong> در فاز چینش، روی هر نیروی خودی کلیک کنید تا جان اضافه یا مقاومت در برابر باد تهیه نمایید.</p>
+      <h3>📖 راهنمای امکانات استراتژیک و نقشه نامتقارن</h3>
+      <div class="guide-box" style="margin-bottom: 14px;">
+        <p><strong>۱. خط تای متغیر و نامتقارن:</strong> خط تا دیگر صرفاً عمودی نیست! می‌توانید تا کردن مورب (Diagonal) یا نامتقارن را انتخاب کنید تا محاسبات انعکاس بر اساس خط کج انجام شود.</p>
+        <p style="margin-top: 6px;"><strong>۲. حذف سنگر و موانع طبیعی:</strong> سنگرهای بتنی قبلی حذف شدند. به جای آن لکه‌های بزرگ جوهر و سوراخ‌های طبیعی روی کاغذ مسیر گلوله‌ها را قطع می‌کنند.</p>
+        <p style="margin-top: 6px;"><strong>۳. واحد کارخانه تدارکات (Factory):</strong> با قیمت ۳۵۰ سکه و ۳ جان؛ شلیک نمی‌کند اما در ابتدای هر نوبت ۵۰ سکه درآمد خالص به خزانه اضافه می‌کند.</p>
+        <p style="margin-top: 6px;"><strong>۴. قانون خنک‌شونده شلیک (Cooldown):</strong> هر واحد رزمی پس از شلیک حداقل ۱ نوبت استراحت می‌کند و نمی‌توان متوالی با آن شلیک کرد.</p>
+        <p style="margin-top: 6px;"><strong>۵. انیمیشن تخریب سینماتیک:</strong> با انهدام کامل هدف، یک نمایش انفجاری ویژه همراه با لرزش صحنه و جوهر اجرا می‌شود.</p>
       </div>
-      <button class="primary" style="width: 100%;" onclick="closeHelpModal()">متوجه شدم، آماده نبردم!</button>
+      <button class="primary" style="width: 100%;" onclick="closeHelpModal()">متوجه شدم، بزن بریم!</button>
     </div>
   </div>
 
   <script>
-    /* ==========================================================================
-       AUDIO SYNTHESIZER (Web Audio API)
-       ========================================================================== */
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     let audioCtx = null;
     let soundEnabled = true;
@@ -974,7 +1022,6 @@
       const now = audioCtx.currentTime;
 
       if (type === 'dot') {
-        // Crisp pen stroke / ink stamp
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
         osc.type = 'triangle';
@@ -987,25 +1034,22 @@
         osc.start();
         osc.stop(now + 0.06);
       } else if (type === 'fold') {
-        // Realistic paper rustle via shaped noise buffer
         const bufferSize = audioCtx.sampleRate * 0.45;
         const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
         const output = noiseBuffer.getChannelData(0);
-        for (let i = 0; i < bufferSize; i++) {
-          output[i] = Math.random() * 2 - 1;
-        }
+        for (let i = 0; i < bufferSize; i++) output[i] = Math.random() * 2 - 1;
         const whiteNoise = audioCtx.createBufferSource();
         whiteNoise.buffer = noiseBuffer;
 
         const filter = audioCtx.createBiquadFilter();
         filter.type = 'bandpass';
-        filter.frequency.setValueAtTime(350, now);
-        filter.frequency.linearRampToValueAtTime(1600, now + 0.22);
+        filter.frequency.setValueAtTime(320, now);
+        filter.frequency.linearRampToValueAtTime(1500, now + 0.22);
         filter.Q.value = 1.8;
 
         const gain = audioCtx.createGain();
         gain.gain.setValueAtTime(0.02, now);
-        gain.gain.linearRampToValueAtTime(0.3, now + 0.18);
+        gain.gain.linearRampToValueAtTime(0.28, now + 0.18);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
 
         whiteNoise.connect(filter);
@@ -1014,17 +1058,16 @@
         whiteNoise.start();
         whiteNoise.stop(now + 0.46);
       } else if (type === 'hit') {
-        // Bass impact explosion
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
         osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(180, now);
+        osc.frequency.setValueAtTime(190, now);
         osc.frequency.exponentialRampToValueAtTime(25, now + 0.35);
 
         const filter = audioCtx.createBiquadFilter();
         filter.type = 'lowpass';
-        filter.frequency.setValueAtTime(800, now);
-        filter.frequency.exponentialRampToValueAtTime(80, now + 0.35);
+        filter.frequency.setValueAtTime(750, now);
+        filter.frequency.exponentialRampToValueAtTime(70, now + 0.35);
 
         gain.gain.setValueAtTime(0.45, now);
         gain.gain.exponentialRampToValueAtTime(0.01, now + 0.38);
@@ -1034,8 +1077,33 @@
         gain.connect(audioCtx.destination);
         osc.start();
         osc.stop(now + 0.4);
+      } else if (type === 'cinematic') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(140, now);
+        osc.frequency.exponentialRampToValueAtTime(20, now + 0.65);
+        gain.gain.setValueAtTime(0.6, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.7);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(now + 0.72);
+      } else if (type === 'coin') {
+        [987.77, 1318.51].forEach((freq, idx) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'sine';
+          osc.frequency.value = freq;
+          const start = now + idx * 0.08;
+          gain.gain.setValueAtTime(0.25, start);
+          gain.gain.exponentialRampToValueAtTime(0.001, start + 0.22);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(start);
+          osc.stop(start + 0.24);
+        });
       } else if (type === 'water') {
-        // Water splash plop
         const osc = audioCtx.createOscillator();
         const gain = audioCtx.createGain();
         osc.type = 'sine';
@@ -1048,7 +1116,6 @@
         osc.start();
         osc.stop(now + 0.16);
       } else if (type === 'upgrade') {
-        // Harmonic powerup chime
         [523.25, 659.25, 783.99].forEach((freq, idx) => {
           const osc = audioCtx.createOscillator();
           const gain = audioCtx.createGain();
@@ -1063,7 +1130,6 @@
           osc.stop(start + 0.26);
         });
       } else if (type === 'victory') {
-        // Fanfare chord
         [440, 554.37, 659.25, 880].forEach((freq, idx) => {
           const osc = audioCtx.createOscillator();
           const gain = audioCtx.createGain();
@@ -1080,21 +1146,24 @@
       }
     }
 
-    /* ==========================================================================
-       GAME DATA & CONFIGURATION
-       ========================================================================== */
     const SPECS = {
-      soldier: { name: 'سرباز', cost: 100, baseR: 13, inkR: 5, hp: 1, bounty: 33, icon: '🪖' },
-      tank: { name: 'تانک', cost: 250, baseR: 21, inkR: 8, hp: 2, bounty: 83, icon: '🛡️' },
-      boat: { name: 'قایق جنگی', cost: 200, baseR: 23, inkR: 9, hp: 2, bounty: 66, icon: '🛥️' },
-      plane: { name: 'هواپیما', cost: 400, baseR: 28, inkR: 14, hp: 2, bounty: 133, icon: '✈️' }
+      soldier: { name: 'سرباز تک‌تیرانداز', cost: 100, baseR: 13, inkR: 5, hp: 1, bounty: 33, icon: '🪖', canShoot: true },
+      tank:    { name: 'تانک زره‌پوش',     cost: 250, baseR: 21, inkR: 8, hp: 2, bounty: 83, icon: '🛡️', canShoot: true },
+      plane:   { name: 'جنگنده مافوق‌صوت', cost: 400, baseR: 28, inkR: 14, hp: 2, bounty: 133, icon: '✈️', canShoot: true },
+      boat:    { name: 'قایق رزمی',        cost: 200, baseR: 23, inkR: 9, hp: 2, bounty: 66, icon: '🛥️', canShoot: true },
+      factory: { name: 'کارخانه تدارکات',  cost: 350, baseR: 26, inkR: 0, hp: 3, bounty: 116, icon: '🏭', canShoot: false, income: 50 }
     };
 
-    let mode = 'local'; // 'local' | 'ai' | 'online'
-    let phase = 'deployment'; // 'deployment' | 'battle' | 'gameover'
+    let mode = 'local';
+    let phase = 'deployment';
     let currentPlayer = 1;
     let myPlayerId = 1;
-    let terrain = 'plain'; // 'plain' | 'river' | 'obstacles'
+    let turnCount = 1;
+    let startingBudget = 1000;
+
+    let foldStyle = 'center';
+    let paperContour = 'organic';
+
     let windEnabled = true;
     let wind = { active: true, speed: 4, angle: 0, xPx: 8, yPx: -4 };
     let unitScale = 1.0;
@@ -1110,7 +1179,22 @@
     let selectedFiringUnitId = null;
     let currentUpgradingUnit = null;
 
-    // Dynamic Visuals & Particle Engine
+    let naturalObstacles = [];
+
+    function generateNaturalObstacles() {
+      naturalObstacles = [
+        { type: 'ink_blot', xr: 0.32, yr: 0.35, r: 0.052, points: [
+          { a: 0, r: 1.1 }, { a: 0.7, r: 0.8 }, { a: 1.4, r: 1.3 }, { a: 2.1, r: 0.75 },
+          { a: 2.8, r: 1.15 }, { a: 3.6, r: 0.85 }, { a: 4.4, r: 1.25 }, { a: 5.3, r: 0.9 }
+        ]},
+        { type: 'burn_hole', xr: 0.68, yr: 0.42, r: 0.048 },
+        { type: 'ink_blot', xr: 0.50, yr: 0.78, r: 0.042, points: [
+          { a: 0, r: 1.2 }, { a: 1.1, r: 0.7 }, { a: 2.2, r: 1.25 }, { a: 3.4, r: 0.8 },
+          { a: 4.5, r: 1.1 }, { a: 5.5, r: 0.75 }
+        ]}
+      ];
+    }
+
     const particles = [];
     let waterWavePhase = 0;
     let lastTimestamp = performance.now();
@@ -1118,43 +1202,43 @@
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const foldOverlay = document.getElementById('foldOverlay');
+    const cinematicKillcam = document.getElementById('cinematicKillcam');
+    const cinematicTitle = document.getElementById('cinematicTitle');
+    const cinematicDesc = document.getElementById('cinematicDesc');
+    const cinematicIcon = document.getElementById('cinematicIcon');
     const toast = document.getElementById('toast');
     const toastMsg = document.getElementById('toastMsg');
     const toastIcon = document.getElementById('toastIcon');
 
-    // Cached Paper Texture Pattern
     let paperPattern = null;
 
     function initPaperTexture() {
       const pCanvas = document.createElement('canvas');
-      pCanvas.width = 160;
-      pCanvas.height = 160;
+      pCanvas.width = 180;
+      pCanvas.height = 180;
       const pCtx = pCanvas.getContext('2d');
 
-      // Base warm cream parchment tone
       pCtx.fillStyle = '#faf7ee';
-      pCtx.fillRect(0, 0, 160, 160);
+      pCtx.fillRect(0, 0, 180, 180);
 
-      // Micro fibers
-      const imgData = pCtx.getImageData(0, 0, 160, 160);
+      const imgData = pCtx.getImageData(0, 0, 180, 180);
       const data = imgData.data;
       for (let i = 0; i < data.length; i += 4) {
-        const noise = (Math.random() - 0.5) * 12;
+        const noise = (Math.random() - 0.5) * 14;
         data[i] = Math.min(255, Math.max(0, data[i] + noise));
         data[i + 1] = Math.min(255, Math.max(0, data[i + 1] + noise));
         data[i + 2] = Math.min(255, Math.max(0, data[i + 2] + noise - 2));
       }
       pCtx.putImageData(imgData, 0, 0);
 
-      // Delicate paper fibers
-      pCtx.strokeStyle = 'rgba(160, 140, 110, 0.15)';
+      pCtx.strokeStyle = 'rgba(160, 140, 110, 0.16)';
       pCtx.lineWidth = 0.5;
-      for (let i = 0; i < 35; i++) {
+      for (let i = 0; i < 40; i++) {
         pCtx.beginPath();
-        const sx = Math.random() * 160;
-        const sy = Math.random() * 160;
+        const sx = Math.random() * 180;
+        const sy = Math.random() * 180;
         pCtx.moveTo(sx, sy);
-        pCtx.lineTo(sx + (Math.random() - 0.5) * 8, sy + (Math.random() - 0.5) * 8);
+        pCtx.lineTo(sx + (Math.random() - 0.5) * 10, sy + (Math.random() - 0.5) * 10);
         pCtx.stroke();
       }
 
@@ -1165,41 +1249,125 @@
       toastMsg.innerText = msg;
       toastIcon.innerText = icon;
       toast.classList.add('show');
-      setTimeout(() => {
-        toast.classList.remove('show');
-      }, 2500);
+      setTimeout(() => toast.classList.remove('show'), 2500);
+    }
+
+    function getFoldLineParams() {
+      const w = canvas.width;
+      const h = canvas.height;
+
+      let p0x = w * 0.5;
+      let p0y = h * 0.5;
+      let angle = 0;
+
+      if (foldStyle === 'diagonal_right') {
+        angle = (12 * Math.PI) / 180;
+      } else if (foldStyle === 'diagonal_left') {
+        angle = (-12 * Math.PI) / 180;
+      } else if (foldStyle === 'asym_p1') {
+        p0x = w * 0.42;
+      } else if (foldStyle === 'asym_p2') {
+        p0x = w * 0.58;
+      }
+
+      const nx = Math.cos(angle);
+      const ny = Math.sin(angle);
+
+      return { p0x, p0y, nx, ny, angle };
+    }
+
+    function getPlayerSideForPoint(px, py) {
+      const { p0x, p0y, nx, ny } = getFoldLineParams();
+      const dot = (px - p0x) * nx + (py - p0y) * ny;
+      return dot < 0 ? 1 : 2;
+    }
+
+    function reflectAcrossFoldLine(px, py) {
+      const { p0x, p0y, nx, ny } = getFoldLineParams();
+      const dot = (px - p0x) * nx + (py - p0y) * ny;
+      const rx = px - 2 * dot * nx;
+      const ry = py - 2 * dot * ny;
+      return { rx, ry };
+    }
+
+    function checkNaturalObstacleCollision(px, py) {
+      const w = canvas.width;
+      const h = canvas.height;
+      return naturalObstacles.find(o => {
+        const ox = o.xr * w;
+        const oy = o.yr * h;
+        const dist = Math.hypot(px - ox, py - oy);
+        return dist <= o.r * w;
+      });
     }
 
     function isPointInWater(xr, yr) {
-      const shore = 0.70 + Math.sin(xr * Math.PI * 4) * 0.03;
+      const shore = 0.72 + Math.sin(xr * Math.PI * 4) * 0.03;
       return yr >= shore;
     }
 
-    function isPointInObstacle(xr, yr) {
-      const obs = [
-        { x: 0.22, y: 0.32, r: 0.065 },
-        { x: 0.36, y: 0.52, r: 0.055 },
-        { x: 0.78, y: 0.32, r: 0.065 },
-        { x: 0.64, y: 0.52, r: 0.055 }
-      ];
-      return obs.some(o => Math.hypot(o.x - xr, o.y - yr) <= o.r);
+    function changeBoardDynamicSize(newWidth) {
+      const w = parseInt(newWidth, 10);
+      const h = Math.round(w * 0.554);
+      const wrapper = document.getElementById('boardWrapper');
+
+      wrapper.style.width = w + 'px';
+      wrapper.style.height = h + 'px';
+      canvas.width = w;
+      canvas.height = h;
+
+      document.getElementById('boardDimensionsText').innerText = `${w}×${h}`;
+      initPaperTexture();
     }
 
-    /* ==========================================================================
-       PARTICLE SYSTEM (Ink Splatter, Smoke, Shrapnel)
-       ========================================================================== */
+    function changeFoldStyle(val) {
+      foldStyle = val;
+      showToast('خط تا و هندسه انعکاس بروزرسانی شد 📐', '✂');
+    }
+
+    function changeBudget(val) {
+      startingBudget = parseInt(val, 10);
+      resetGame();
+      showToast(`سرمایه اولیه بازی: ${startingBudget} سکه تنظیم شد 🪙`, '💰');
+    }
+
+    function changeContour(val) {
+      paperContour = val;
+      const wrapper = document.getElementById('boardWrapper');
+      const spiral = document.getElementById('spiralBinder');
+
+      wrapper.className = 'board-wrapper';
+      spiral.style.display = 'none';
+
+      if (val === 'organic') {
+        wrapper.classList.add('board-contour-organic');
+      } else if (val === 'torn') {
+        wrapper.classList.add('board-contour-torn');
+        spiral.style.display = 'flex';
+      }
+      showToast('سبک برگه دفتر تغییر یافت 📄', '✨');
+    }
+
+    function triggerScreenShake() {
+      const wrapper = document.getElementById('boardWrapper');
+      wrapper.classList.remove('shake-fx');
+      void wrapper.offsetWidth;
+      wrapper.classList.add('shake-fx');
+      setTimeout(() => wrapper.classList.remove('shake-fx'), 450);
+    }
+
     function spawnInkSplatter(x, y, color, baseRadius) {
-      const count = Math.floor(14 + Math.random() * 10);
+      const count = Math.floor(16 + Math.random() * 10);
       for (let i = 0; i < count; i++) {
         const ang = Math.random() * Math.PI * 2;
-        const speed = (Math.random() * 3.5 + 1.2) * (baseRadius / 8);
+        const speed = (Math.random() * 3.8 + 1.2) * (baseRadius / 8);
         particles.push({
           type: 'ink',
           x,
           y,
           vx: Math.cos(ang) * speed,
           vy: Math.sin(ang) * speed,
-          radius: Math.random() * 2.5 + 1.2,
+          radius: Math.random() * 2.8 + 1.2,
           color,
           alpha: 0.95,
           decay: Math.random() * 0.02 + 0.015
@@ -1208,10 +1376,9 @@
     }
 
     function spawnExplosionFX(x, y) {
-      // 1. Shrapnel metal debris
-      for (let i = 0; i < 22; i++) {
+      for (let i = 0; i < 24; i++) {
         const ang = Math.random() * Math.PI * 2;
-        const speed = Math.random() * 5 + 2;
+        const speed = Math.random() * 5.5 + 2;
         particles.push({
           type: 'debris',
           x,
@@ -1220,26 +1387,25 @@
           vy: Math.sin(ang) * speed - 1.5,
           size: Math.random() * 4 + 2,
           rot: Math.random() * Math.PI,
-          vrot: (Math.random() - 0.5) * 0.3,
+          vrot: (Math.random() - 0.5) * 0.35,
           color: Math.random() > 0.5 ? '#334155' : '#b91c1c',
           alpha: 1,
-          decay: 0.025
+          decay: 0.024
         });
       }
-      // 2. Translucent smoke clouds
-      for (let i = 0; i < 12; i++) {
+      for (let i = 0; i < 14; i++) {
         const ang = Math.random() * Math.PI * 2;
         const speed = Math.random() * 1.8 + 0.5;
         particles.push({
           type: 'smoke',
-          x: x + (Math.random() - 0.5) * 10,
-          y: y + (Math.random() - 0.5) * 10,
+          x: x + (Math.random() - 0.5) * 12,
+          y: y + (Math.random() - 0.5) * 12,
           vx: Math.cos(ang) * speed,
           vy: Math.sin(ang) * speed - 0.8,
           radius: Math.random() * 10 + 8,
-          grow: 0.35,
+          grow: 0.36,
           color: 'rgba(71, 85, 105, ',
-          alpha: 0.65,
+          alpha: 0.7,
           decay: 0.018
         });
       }
@@ -1259,10 +1425,28 @@
       }
     }
 
+    function spawnCoinSparks(x, y) {
+      for (let i = 0; i < 10; i++) {
+        const ang = Math.random() * Math.PI * 2;
+        const speed = Math.random() * 2.5 + 1;
+        particles.push({
+          type: 'coin_spark',
+          x,
+          y,
+          vx: Math.cos(ang) * speed,
+          vy: Math.sin(ang) * speed - 1.2,
+          radius: 2.2,
+          color: '#f59e0b',
+          alpha: 1,
+          decay: 0.03
+        });
+      }
+    }
+
     function updateParticles() {
       for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i];
-        if (p.type === 'ink') {
+        if (p.type === 'ink' || p.type === 'coin_spark') {
           p.x += p.vx;
           p.y += p.vy;
           p.vx *= 0.90;
@@ -1271,7 +1455,7 @@
         } else if (p.type === 'debris') {
           p.x += p.vx;
           p.y += p.vy;
-          p.vy += 0.12; // gravity
+          p.vy += 0.14;
           p.rot += p.vrot;
           p.alpha -= p.decay;
         } else if (p.type === 'smoke') {
@@ -1283,19 +1467,32 @@
           p.radius += 0.8;
           p.alpha -= p.decay;
         }
-        if (p.alpha <= 0) {
-          particles.splice(i, 1);
-        }
+        if (p.alpha <= 0) particles.splice(i, 1);
       }
     }
 
-    /* ==========================================================================
-       WIND ENGINE
-       ========================================================================== */
+    function showCinematicKill(victim, shooterPlayer, firingUnit) {
+      triggerScreenShake();
+      playSfx('cinematic');
+
+      const bounty = SPECS[victim.type].bounty;
+      const attackerName = SPECS[firingUnit.type].name;
+      const victimName = SPECS[victim.type].name;
+
+      cinematicIcon.innerText = victim.type === 'plane' ? '💥✈️' : victim.type === 'tank' ? '💥🛡️' : victim.type === 'factory' ? '💥🏭' : '💥🪖';
+      cinematicTitle.innerText = `انهدام حماسی ${victimName}!`;
+      cinematicDesc.innerText = `توسط ${attackerName} بازیکن ${shooterPlayer} • دریافت +${bounty} سکه غنیمت جنگی (۱/۳)`;
+
+      cinematicKillcam.style.display = 'flex';
+      setTimeout(() => {
+        cinematicKillcam.style.display = 'none';
+      }, 2300);
+    }
+
     function randomizeWind() {
       if (!windEnabled) {
         wind = { active: false, speed: 0, angle: 0, xPx: 0, yPx: 0 };
-        document.getElementById('windSpeedText').innerText = 'باد: غیرفعال';
+        document.getElementById('windSpeedText').innerText = 'باد: خاموش';
         document.getElementById('windCompass').style.transform = 'rotate(0deg)';
         return;
       }
@@ -1312,7 +1509,7 @@
 
     function toggleWind() {
       windEnabled = !windEnabled;
-      document.getElementById('windBtnText').innerText = windEnabled ? 'باد: فعال' : 'باد: خاموش';
+      document.getElementById('windBtnText').innerText = windEnabled ? 'باد: روشن' : 'باد: خاموش';
       randomizeWind();
     }
 
@@ -1326,49 +1523,83 @@
       unitScale = parseFloat(val);
     }
 
-    function changeBoardSize(preset) {
-      const wrapper = document.getElementById('boardWrapper');
-      let w = 880, h = 500;
-      if (preset === 'wide') { w = 1040; h = 520; }
-      wrapper.style.width = w + 'px';
-      wrapper.style.height = h + 'px';
-      canvas.width = w;
-      canvas.height = h;
-      initPaperTexture();
-    }
-
-    function changeTerrain(t) {
-      terrain = t;
-      resetGame();
-      showToast(t === 'river' ? 'زمین رودخانه فعال شد 🌊' : t === 'obstacles' ? 'سنگرهای ضدگلوله اضافه شدند ⛰️' : 'کاغذ سفید انتخاب شد 📄');
-    }
-
     function selectBuyUnit(t) {
       selectedBuyType = t;
-      ['soldier', 'tank', 'boat', 'plane'].forEach(k => {
+      ['soldier', 'tank', 'plane', 'boat', 'factory'].forEach(k => {
         const el = document.getElementById('card_' + k);
         if (el) el.className = (k === t ? 'unit-card selected' : 'unit-card');
       });
     }
 
-    /* ==========================================================================
-       VECTOR ART DRAWING HELPERS
-       ========================================================================== */
+    function drawVectorFactory(u, col, timestamp) {
+      ctx.fillStyle = col;
+      ctx.strokeStyle = '#0f172a';
+      ctx.lineWidth = 1.6;
 
-    // Draw Vector Tank
+      ctx.beginPath();
+      ctx.rect(-18, -8, 36, 18);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#334155';
+      ctx.beginPath();
+      ctx.moveTo(-18, -8);
+      ctx.lineTo(-8, -17);
+      ctx.lineTo(-8, -8);
+      ctx.lineTo(2, -17);
+      ctx.lineTo(2, -8);
+      ctx.lineTo(12, -17);
+      ctx.lineTo(12, -8);
+      ctx.lineTo(18, -8);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#475569';
+      ctx.fillRect(-16, -21, 5, 13);
+      ctx.strokeRect(-16, -21, 5, 13);
+
+      ctx.fillRect(11, -21, 5, 13);
+      ctx.strokeRect(11, -21, 5, 13);
+
+      ctx.fillStyle = '#94a3b8';
+      ctx.fillRect(-17.5, -23, 8, 3);
+      ctx.fillRect(9.5, -23, 8, 3);
+
+      if (!u.isDestroyed) {
+        const puff = (Math.sin(timestamp * 0.005 + u.xRatio * 10) + 1) * 3;
+        ctx.fillStyle = 'rgba(148, 163, 184, 0.55)';
+        ctx.beginPath();
+        ctx.arc(-13.5, -28 - puff, 3.5 + puff * 0.5, 0, Math.PI * 2);
+        ctx.arc(13.5, -27 - puff * 0.8, 3 + puff * 0.4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      ctx.fillStyle = '#fde047';
+      ctx.fillRect(-14, -3, 6, 6);
+      ctx.fillRect(8, -3, 6, 6);
+
+      ctx.fillStyle = '#1e293b';
+      ctx.fillRect(-3, -2, 7, 12);
+      ctx.strokeRect(-3, -2, 7, 12);
+
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.arc(0, -11, 3.5, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
     function drawVectorTank(u, dir, col) {
-      // 1. Treads (Tracks)
       ctx.fillStyle = '#334155';
       ctx.strokeStyle = '#1e293b';
       ctx.lineWidth = 1.2;
 
-      // Top and bottom track belts
       ctx.fillRect(-17, -13, 34, 5);
       ctx.strokeRect(-17, -13, 34, 5);
       ctx.fillRect(-17, 8, 34, 5);
       ctx.strokeRect(-17, 8, 34, 5);
 
-      // Track link segments
       for (let tx = -14; tx <= 14; tx += 6) {
         ctx.beginPath();
         ctx.moveTo(tx, -13); ctx.lineTo(tx, -8);
@@ -1376,18 +1607,15 @@
         ctx.stroke();
       }
 
-      // 2. Armored Hull
       ctx.fillStyle = col;
       ctx.beginPath();
       ctx.roundRect(-15, -8, 30, 16, 3);
       ctx.fill();
       ctx.stroke();
 
-      // Armor plate highlight bevel
       ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
       ctx.fillRect(-13, -7, 26, 4);
 
-      // 3. Turret Ring & Hatch
       ctx.fillStyle = '#0f172a';
       ctx.beginPath();
       ctx.arc(dir * -1, 0, 7.5, 0, Math.PI * 2);
@@ -1401,13 +1629,6 @@
       ctx.lineWidth = 1;
       ctx.stroke();
 
-      // Commander Hatch
-      ctx.fillStyle = '#1e293b';
-      ctx.beginPath();
-      ctx.arc(dir * -3, -1, 2.5, 0, Math.PI * 2);
-      ctx.fill();
-
-      // 4. Main Cannon Barrel with Muzzle Brake
       ctx.lineWidth = 3.5;
       ctx.strokeStyle = '#0f172a';
       ctx.beginPath();
@@ -1415,14 +1636,11 @@
       ctx.lineTo(dir * 22, 0);
       ctx.stroke();
 
-      // Muzzle Brake
       ctx.fillStyle = '#0f172a';
       ctx.fillRect(dir === 1 ? 19 : -23, -2.5, 4, 5);
     }
 
-    // Draw Vector Fighter Jet (Plane)
     function drawVectorPlane(u, dir, col, hoverY) {
-      // Projected soft shadow onto the paper (indicates flight altitude)
       ctx.save();
       ctx.translate(0, 16 - hoverY);
       ctx.scale(1.05, 0.4);
@@ -1432,42 +1650,29 @@
       ctx.fill();
       ctx.restore();
 
-      // Bobbing floating motion
       ctx.translate(0, hoverY);
 
-      // 1. Wings
       ctx.fillStyle = col;
       ctx.strokeStyle = '#0f172a';
       ctx.lineWidth = 1.4;
 
       ctx.beginPath();
-      ctx.moveTo(dir * 22, 0); // nose
+      ctx.moveTo(dir * 22, 0);
       ctx.lineTo(dir * 5, -5);
-      ctx.lineTo(-dir * 8, -20); // wing tip 1
+      ctx.lineTo(-dir * 8, -20);
       ctx.lineTo(-dir * 14, -18);
       ctx.lineTo(-dir * 8, -4);
-      ctx.lineTo(-dir * 18, -10); // tail wing 1
-      ctx.lineTo(-dir * 20, 0); // tail cone
-      ctx.lineTo(-dir * 18, 10); // tail wing 2
+      ctx.lineTo(-dir * 18, -10);
+      ctx.lineTo(-dir * 20, 0);
+      ctx.lineTo(-dir * 18, 10);
       ctx.lineTo(-dir * 8, 4);
       ctx.lineTo(-dir * 14, 18);
-      ctx.lineTo(-dir * 8, 20); // wing tip 2
+      ctx.lineTo(-dir * 8, 20);
       ctx.lineTo(dir * 5, 5);
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
 
-      // Wing panel accents
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.28)';
-      ctx.beginPath();
-      ctx.moveTo(dir * 12, 0);
-      ctx.lineTo(-dir * 4, -12);
-      ctx.lineTo(-dir * 6, -10);
-      ctx.lineTo(dir * 4, 0);
-      ctx.closePath();
-      ctx.fill();
-
-      // 2. Cockpit Canopy Glass with Glare
       ctx.fillStyle = '#38bdf8';
       ctx.beginPath();
       ctx.ellipse(dir * 6, 0, 8, 3.2, 0, 0, Math.PI * 2);
@@ -1475,17 +1680,9 @@
       ctx.strokeStyle = '#0284c7';
       ctx.lineWidth = 1;
       ctx.stroke();
-
-      // Specular highlight glare
-      ctx.fillStyle = '#ffffff';
-      ctx.beginPath();
-      ctx.ellipse(dir * 7, -1, 4, 1.2, -0.2, 0, Math.PI * 2);
-      ctx.fill();
     }
 
-    // Draw Vector Warship (Boat)
-    function drawVectorBoat(u, dir, col, waveTime) {
-      // 1. Dynamic Wake Ripples at Hull Bow & Sides
+    function drawVectorBoat(u, dir, col) {
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
       ctx.lineWidth = 1.6;
       ctx.beginPath();
@@ -1498,43 +1695,24 @@
       ctx.quadraticCurveTo(dir * 14, 14, -dir * 18, 14);
       ctx.stroke();
 
-      // 2. Naval Hull
       ctx.fillStyle = col;
       ctx.strokeStyle = '#0f172a';
       ctx.lineWidth = 1.6;
 
       ctx.beginPath();
-      ctx.moveTo(dir * 23, 0); // pointed bow
+      ctx.moveTo(dir * 23, 0);
       ctx.lineTo(dir * 14, -9);
-      ctx.lineTo(-dir * 18, -9); // stern
+      ctx.lineTo(-dir * 18, -9);
       ctx.lineTo(-dir * 18, 9);
       ctx.lineTo(dir * 14, 9);
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
 
-      // Hull Deck Inset
-      ctx.fillStyle = '#f1f5f9';
-      ctx.beginPath();
-      ctx.moveTo(dir * 16, 0);
-      ctx.lineTo(dir * 10, -6);
-      ctx.lineTo(-dir * 14, -6);
-      ctx.lineTo(-dir * 14, 6);
-      ctx.lineTo(dir * 10, 6);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-
-      // 3. Deck Cabin / Bridge
       ctx.fillStyle = '#334155';
       ctx.fillRect(-dir * 5, -5, 12, 10);
       ctx.strokeRect(-dir * 5, -5, 12, 10);
 
-      // Bridge Windows
-      ctx.fillStyle = '#38bdf8';
-      ctx.fillRect(dir * 4, -3, 2.5, 6);
-
-      // Forward Gun Turret
       ctx.fillStyle = '#0f172a';
       ctx.beginPath();
       ctx.arc(dir * 11, 0, 3.5, 0, Math.PI * 2);
@@ -1546,15 +1724,12 @@
       ctx.stroke();
     }
 
-    // Draw Vector Tactical Soldier
     function drawVectorSoldier(u, dir, col) {
-      // Ground shadow
       ctx.fillStyle = 'rgba(15, 23, 42, 0.18)';
       ctx.beginPath();
       ctx.ellipse(0, 13, 8, 3.5, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      // 1. Boots & Legs
       ctx.strokeStyle = '#0f172a';
       ctx.lineWidth = 2.5;
       ctx.lineCap = 'round';
@@ -1563,7 +1738,6 @@
       ctx.moveTo(2, 5); ctx.lineTo(4, 13);
       ctx.stroke();
 
-      // 2. Torso / Tactical Vest
       ctx.fillStyle = col;
       ctx.beginPath();
       ctx.roundRect(-5.5, -4, 11, 10, 3);
@@ -1572,67 +1746,37 @@
       ctx.lineWidth = 1.4;
       ctx.stroke();
 
-      // Ammo Pouches
-      ctx.fillStyle = '#334155';
-      ctx.fillRect(-4, 1, 3.5, 3);
-      ctx.fillRect(0.5, 1, 3.5, 3);
-
-      // 3. Combat Helmet & Head
       ctx.fillStyle = '#1e293b';
       ctx.beginPath();
-      ctx.arc(0, -9, 6, Math.PI, 0); // helmet dome
+      ctx.arc(0, -9, 6, Math.PI, 0);
       ctx.fill();
       ctx.stroke();
 
-      // Helmet visor strap
-      ctx.fillStyle = col;
-      ctx.fillRect(-6.5, -9, 13, 2.5);
-
-      // Face & Specular Goggles
       ctx.fillStyle = '#fde68a';
       ctx.beginPath();
       ctx.arc(0, -6.5, 4.2, 0, Math.PI);
       ctx.fill();
 
-      // Tactical Goggles
       ctx.fillStyle = '#0284c7';
       ctx.beginPath();
       ctx.roundRect(dir * -1, -8, 6, 3, 1.5);
       ctx.fill();
 
-      // Specular shine on goggles
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(dir * 1, -7.5, 1.5, 1.5);
-
-      // 4. Service Rifle Carbine
       ctx.strokeStyle = '#0f172a';
       ctx.lineWidth = 2.5;
       ctx.beginPath();
       ctx.moveTo(-dir * 2, 0);
       ctx.lineTo(dir * 12, -2);
       ctx.stroke();
-
-      // Rifle magazine
-      ctx.lineWidth = 1.8;
-      ctx.beginPath();
-      ctx.moveTo(dir * 5, -2);
-      ctx.lineTo(dir * 4, 3);
-      ctx.stroke();
     }
 
-    /* ==========================================================================
-       MAIN RENDER LOOP (60 FPS)
-       ========================================================================== */
     function render(timestamp) {
-      const dt = (timestamp - lastTimestamp) / 1000;
       lastTimestamp = timestamp;
       waterWavePhase += 0.035;
 
       const w = canvas.width;
       const h = canvas.height;
-      const midX = w / 2;
 
-      // 1. Draw Clean Realistic Paper Background
       if (paperPattern) {
         ctx.fillStyle = paperPattern;
         ctx.fillRect(0, 0, w, h);
@@ -1641,140 +1785,120 @@
         ctx.fillRect(0, 0, w, h);
       }
 
-      // 2. Subtle Notebook Ruled Guide Margins / Perforations
       ctx.save();
       ctx.strokeStyle = 'rgba(214, 206, 187, 0.4)';
       ctx.lineWidth = 1;
-      // Border guide rectangle
       ctx.strokeRect(16, 16, w - 32, h - 32);
       ctx.restore();
 
-      // 3. Terrain Layer
-      if (terrain === 'river') {
-        ctx.save();
-        // Layer 1: Base River Water Flow
-        const grad = ctx.createLinearGradient(0, h * 0.7, 0, h);
-        grad.addColorStop(0, 'rgba(186, 230, 253, 0.65)');
-        grad.addColorStop(1, 'rgba(56, 189, 248, 0.55)');
-
-        ctx.beginPath();
-        for (let i = 0; i <= 80; i++) {
-          const xr = i / 80;
-          // Animated wave equation
-          const wave = Math.sin(xr * Math.PI * 6 + waterWavePhase) * 4;
-          const y = (0.70 + Math.sin(xr * Math.PI * 4) * 0.03) * h + wave;
-          if (i === 0) ctx.moveTo(xr * w, y);
-          else ctx.lineTo(xr * w, y);
-        }
-        ctx.lineTo(w, h);
-        ctx.lineTo(0, h);
-        ctx.closePath();
-        ctx.fillStyle = grad;
-        ctx.fill();
-
-        // Layer 2: Animated Foam Shoreline
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
-        ctx.lineWidth = 2.5;
-        ctx.stroke();
-
-        // Layer 3: Secondary subtle water flow ripples
-        ctx.strokeStyle = 'rgba(14, 165, 233, 0.3)';
-        ctx.lineWidth = 1.4;
-        ctx.setLineDash([12, 10]);
-        for (let r = 1; r <= 3; r++) {
-          const ry = h * (0.74 + r * 0.07);
-          ctx.beginPath();
-          ctx.moveTo(0, ry);
-          ctx.lineTo(w, ry);
-          ctx.stroke();
-        }
-        ctx.setLineDash([]);
-        ctx.restore();
-      } else if (terrain === 'obstacles') {
-        const obs = [
-          { x: w * 0.22, y: h * 0.32, r: w * 0.065 },
-          { x: w * 0.36, y: h * 0.52, r: w * 0.055 },
-          { x: w * 0.78, y: h * 0.32, r: w * 0.065 },
-          { x: w * 0.64, y: h * 0.52, r: w * 0.055 }
-        ];
-
-        obs.forEach(o => {
-          ctx.save();
-          // Bunker cast shadow
-          ctx.fillStyle = 'rgba(15, 23, 42, 0.12)';
-          ctx.beginPath();
-          ctx.ellipse(o.x + 3, o.y + 5, o.r + 2, o.r * 0.85, 0, 0, Math.PI * 2);
-          ctx.fill();
-
-          // Bunker Concrete Rim
-          const bunkerGrad = ctx.createRadialGradient(o.x - o.r * 0.3, o.y - o.r * 0.3, 2, o.x, o.y, o.r);
-          bunkerGrad.addColorStop(0, '#f1f5f9');
-          bunkerGrad.addColorStop(1, '#94a3b8');
-          ctx.fillStyle = bunkerGrad;
-          ctx.strokeStyle = '#475569';
-          ctx.lineWidth = 2.5;
-          ctx.beginPath();
-          ctx.arc(o.x, o.y, o.r, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.stroke();
-
-          // Gun embrasure slits (cross pattern)
-          ctx.fillStyle = '#1e293b';
-          ctx.fillRect(o.x - o.r * 0.45, o.y - 3, o.r * 0.9, 6);
-          ctx.fillRect(o.x - 3, o.y - o.r * 0.45, 6, o.r * 0.9);
-
-          // Rivets / Bolts
-          ctx.fillStyle = '#334155';
-          for (let b = 0; b < 6; b++) {
-            const bAng = (b * Math.PI) / 3;
-            const bx = o.x + Math.cos(bAng) * (o.r - 5);
-            const by = o.y + Math.sin(bAng) * (o.r - 5);
-            ctx.beginPath();
-            ctx.arc(bx, by, 1.8, 0, Math.PI * 2);
-            ctx.fill();
-          }
-
-          ctx.font = 'bold 11px Vazirmatn, sans-serif';
-          ctx.fillStyle = '#0f172a';
-          ctx.textAlign = 'center';
-          ctx.fillText('سنگر بتنی', o.x, o.y + o.r + 14);
-          ctx.restore();
-        });
-      }
-
-      // 4. Middle Fold Line & 3D Lighting Gradients
       ctx.save();
-      // Ambient shadow on left and right of crease
-      const leftShadow = ctx.createLinearGradient(midX - 35, 0, midX, 0);
-      leftShadow.addColorStop(0, 'rgba(0,0,0,0)');
-      leftShadow.addColorStop(1, 'rgba(0,0,0,0.06)');
-      ctx.fillStyle = leftShadow;
-      ctx.fillRect(midX - 35, 0, 35, h);
+      const grad = ctx.createLinearGradient(0, h * 0.72, 0, h);
+      grad.addColorStop(0, 'rgba(186, 230, 253, 0.65)');
+      grad.addColorStop(1, 'rgba(56, 189, 248, 0.55)');
 
-      const rightShadow = ctx.createLinearGradient(midX, 0, midX + 35, 0);
-      rightShadow.addColorStop(0, 'rgba(0,0,0,0.08)');
-      rightShadow.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.fillStyle = rightShadow;
-      ctx.fillRect(midX, 0, 35, h);
-
-      // Delicate dashed fold stitch
       ctx.beginPath();
-      ctx.setLineDash([6, 6]);
-      ctx.lineWidth = 1.4;
-      ctx.strokeStyle = 'rgba(100, 116, 139, 0.55)';
-      ctx.moveTo(midX, 0);
-      ctx.lineTo(midX, h);
+      for (let i = 0; i <= 80; i++) {
+        const xr = i / 80;
+        const wave = Math.sin(xr * Math.PI * 6 + waterWavePhase) * 4;
+        const y = (0.72 + Math.sin(xr * Math.PI * 4) * 0.03) * h + wave;
+        if (i === 0) ctx.moveTo(xr * w, y);
+        else ctx.lineTo(xr * w, y);
+      }
+      ctx.lineTo(w, h);
+      ctx.lineTo(0, h);
+      ctx.closePath();
+      ctx.fillStyle = grad;
+      ctx.fill();
+
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+      ctx.lineWidth = 2.4;
+      ctx.stroke();
+      ctx.restore();
+
+      naturalObstacles.forEach(o => {
+        const ox = o.xr * w;
+        const oy = o.yr * h;
+        const or = o.r * w;
+
+        ctx.save();
+        if (o.type === 'ink_blot') {
+          ctx.fillStyle = '#0f172a';
+          ctx.beginPath();
+          o.points.forEach((pt, idx) => {
+            const rad = or * pt.r;
+            const px = ox + Math.cos(pt.a) * rad;
+            const py = oy + Math.sin(pt.a) * rad;
+            if (idx === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+          });
+          ctx.closePath();
+          ctx.fill();
+
+          ctx.strokeStyle = 'rgba(15, 23, 42, 0.35)';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+
+          ctx.font = 'bold 10px Vazirmatn, sans-serif';
+          ctx.fillStyle = '#cbd5e1';
+          ctx.textAlign = 'center';
+          ctx.fillText('لکه جوهر', ox, oy + 4);
+        } else if (o.type === 'burn_hole') {
+          ctx.fillStyle = '#e2e8f0';
+          ctx.beginPath();
+          ctx.ellipse(ox, oy, or, or * 0.75, 0.3, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.strokeStyle = '#78350f';
+          ctx.lineWidth = 3.5;
+          ctx.stroke();
+
+          ctx.font = 'bold 10px Vazirmatn, sans-serif';
+          ctx.fillStyle = '#92400e';
+          ctx.textAlign = 'center';
+          ctx.fillText('سوراخ کاغذ', ox, oy + 4);
+        }
+        ctx.restore();
+      });
+
+      const { p0x, p0y, nx, ny, angle } = getFoldLineParams();
+      ctx.save();
+
+      const topY = 0;
+      const topX = p0x - (topY - p0y) * (ny / nx);
+      const botY = h;
+      const botX = p0x - (botY - p0y) * (ny / nx);
+
+      ctx.strokeStyle = 'rgba(15, 23, 42, 0.12)';
+      ctx.lineWidth = 14;
+      ctx.beginPath();
+      ctx.moveTo(topX + nx * 2, topY);
+      ctx.lineTo(botX + nx * 2, botY);
+      ctx.stroke();
+
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(topX - nx * 1.5, topY);
+      ctx.lineTo(botX - nx * 1.5, botY);
+      ctx.stroke();
+
+      ctx.strokeStyle = '#64748b';
+      ctx.lineWidth = 1.6;
+      ctx.setLineDash([7, 5]);
+      ctx.beginPath();
+      ctx.moveTo(topX, topY);
+      ctx.lineTo(botX, botY);
       ctx.stroke();
       ctx.setLineDash([]);
 
-      // Fold Label & Scissor Icon
       ctx.font = 'bold 11px Vazirmatn, sans-serif';
-      ctx.fillStyle = '#64748b';
+      ctx.fillStyle = '#475569';
       ctx.textAlign = 'center';
-      ctx.fillText('✂ خط تا کردن کاغذ دفتر', midX, 22);
+      const labelX = (topX + botX) / 2;
+      const labelY = 22;
+      ctx.fillText('✂ خط تای پویا و متغیر کاغذ', labelX, labelY);
       ctx.restore();
 
-      // 5. Units Rendering
       units.forEach(u => {
         const isHidden = hideOpponent && mode === 'local' && u.player !== currentPlayer && !u.isDestroyed;
         if (isHidden) return;
@@ -1788,11 +1912,8 @@
         ctx.save();
         ctx.translate(ux, uy);
 
-        if (u.isDestroyed) {
-          ctx.globalAlpha = 0.45;
-        }
+        if (u.isDestroyed) ctx.globalAlpha = 0.45;
 
-        // Active Firing Unit Reticle
         if (u.id === selectedFiringUnitId && !u.isDestroyed) {
           ctx.save();
           const pulse = (Math.sin(timestamp * 0.006) + 1) * 2;
@@ -1802,27 +1923,16 @@
           ctx.lineWidth = 2.4;
           ctx.setLineDash([5, 4]);
           ctx.stroke();
-
-          // Crosshairs
-          ctx.beginPath();
-          ctx.setLineDash([]);
-          ctx.lineWidth = 1.5;
-          ctx.moveTo(0, -hitR - 14); ctx.lineTo(0, -hitR - 6);
-          ctx.moveTo(0, hitR + 6); ctx.lineTo(0, hitR + 14);
-          ctx.moveTo(-hitR - 14, 0); ctx.lineTo(-hitR - 6, 0);
-          ctx.moveTo(hitR + 6, 0); ctx.lineTo(hitR + 14, 0);
-          ctx.stroke();
           ctx.restore();
         }
 
-        // Health Points (HP) Badges
         if (!u.isDestroyed) {
           const totalHp = u.maxHp;
-          const pipSpacing = 9;
+          const pipSpacing = 8;
           const startX = -((totalHp - 1) * pipSpacing) / 2;
           for (let p = 0; p < totalHp; p++) {
             ctx.beginPath();
-            ctx.arc(startX + p * pipSpacing, -hitR - 8, 3.5, 0, Math.PI * 2);
+            ctx.arc(startX + p * pipSpacing, -hitR - 8, 3.2, 0, Math.PI * 2);
             ctx.fillStyle = p < u.hp ? '#10b981' : '#cbd5e1';
             ctx.fill();
             ctx.strokeStyle = '#ffffff';
@@ -1830,49 +1940,41 @@
             ctx.stroke();
           }
 
-          // Wind Resistance shield icon if upgraded
-          if (u.upgrades && u.upgrades.windRes) {
-            ctx.font = '10px sans-serif';
-            ctx.fillText('🛡️', hitR + 2, -hitR - 4);
+          if (u.cooldownRemaining > 0) {
+            ctx.fillStyle = '#ea580c';
+            ctx.beginPath();
+            ctx.arc(hitR + 4, -hitR - 4, 6, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.font = '8px sans-serif';
+            ctx.fillStyle = '#ffffff';
+            ctx.textAlign = 'center';
+            ctx.fillText('⏳', hitR + 4, -hitR - 1);
           }
         }
 
-        // Draw Specific Vector Sprite
         ctx.scale(unitScale, unitScale);
 
-        if (u.type === 'soldier') {
-          drawVectorSoldier(u, dir, col);
-        } else if (u.type === 'tank') {
-          drawVectorTank(u, dir, col);
-        } else if (u.type === 'boat') {
-          drawVectorBoat(u, dir, col, waterWavePhase);
-        } else if (u.type === 'plane') {
+        if (u.type === 'soldier') drawVectorSoldier(u, dir, col);
+        else if (u.type === 'tank') drawVectorTank(u, dir, col);
+        else if (u.type === 'boat') drawVectorBoat(u, dir, col);
+        else if (u.type === 'plane') {
           const hoverY = Math.sin(timestamp * 0.003 + u.xRatio * 10) * 3;
           drawVectorPlane(u, dir, col, hoverY);
+        } else if (u.type === 'factory') {
+          drawVectorFactory(u, col, timestamp);
         }
 
         ctx.restore();
 
-        // Destroyed Wreck Overlay
         if (u.isDestroyed) {
           ctx.save();
           ctx.translate(ux, uy);
-
-          // Paper scorch burn mark
-          ctx.fillStyle = 'rgba(30, 41, 59, 0.15)';
-          ctx.beginPath();
-          ctx.arc(0, 0, hitR + 4, 0, Math.PI * 2);
-          ctx.fill();
-
-          // Crimson X crossing
           ctx.strokeStyle = '#dc2626';
           ctx.lineWidth = 3;
           ctx.beginPath();
           ctx.moveTo(-14, -14); ctx.lineTo(14, 14);
           ctx.moveTo(-14, 14); ctx.lineTo(14, -14);
           ctx.stroke();
-
-          // Destroyed Text
           ctx.font = '900 11px Vazirmatn, sans-serif';
           ctx.fillStyle = '#b91c1c';
           ctx.textAlign = 'center';
@@ -1881,7 +1983,6 @@
         }
       });
 
-      // 6. Shots & Ink Blots Rendering
       shots.forEach(s => {
         const sx = s.srcX * w;
         const sy = s.srcY * h;
@@ -1890,27 +1991,23 @@
         const col = s.player === 1 ? '#1d4ed8' : '#b91c1c';
         const r = s.inkR;
 
-        // Source Stamp (where the pen pressed)
         ctx.fillStyle = col;
         ctx.beginPath();
         ctx.arc(sx, sy, r * 0.75, 0, Math.PI * 2);
         ctx.fill();
 
-        // Target Transferred Ink Stain
         ctx.save();
         ctx.beginPath();
         ctx.arc(tx, ty, r, 0, Math.PI * 2);
         ctx.fillStyle = col;
         ctx.fill();
 
-        // Ink bleed feathered edge ring
         ctx.beginPath();
         ctx.arc(tx, ty, r + 1.5, 0, Math.PI * 2);
         ctx.strokeStyle = s.player === 1 ? 'rgba(37, 99, 235, 0.4)' : 'rgba(220, 38, 38, 0.4)';
         ctx.lineWidth = 1.2;
         ctx.stroke();
 
-        // Direct Hit Red Indicator
         if (s.isHit) {
           ctx.beginPath();
           ctx.arc(tx, ty, r * 1.8, 0, Math.PI * 2);
@@ -1922,12 +2019,11 @@
         ctx.restore();
       });
 
-      // 7. Particle Engine Update & Draw
       updateParticles();
       particles.forEach(p => {
         ctx.save();
         ctx.globalAlpha = Math.max(0, p.alpha);
-        if (p.type === 'ink') {
+        if (p.type === 'ink' || p.type === 'coin_spark') {
           ctx.fillStyle = p.color;
           ctx.beginPath();
           ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
@@ -1955,19 +2051,14 @@
       requestAnimationFrame(render);
     }
 
-    /* ==========================================================================
-       USER INTERACTION & CLICK HANDLING
-       ========================================================================== */
     canvas.addEventListener('click', (e) => {
       if (isAnimating || phase === 'gameover') return;
       const rect = canvas.getBoundingClientRect();
       const clickX = e.clientX - rect.left;
       const clickY = e.clientY - rect.top;
-      const midX = canvas.width / 2;
       const xr = clickX / canvas.width;
       const yr = clickY / canvas.height;
 
-      // 1. Check click on friendly unit for upgrade
       const clickedUnit = units.find(u => {
         if (u.player !== myPlayerId || u.isDestroyed) return false;
         const ux = u.xRatio * canvas.width;
@@ -1980,33 +2071,28 @@
         return;
       }
 
-      // 2. Deployment Phase
       if (phase === 'deployment') {
-        const isP1 = currentPlayer === 1;
-        const validSide = isP1
-          ? (clickX < midX - 25 && clickX > 30)
-          : (clickX > midX + 25 && clickX < canvas.width - 30);
-
-        if (!validSide) {
-          return showToast('تنها در نیمه زمین اختصاصی خود می‌توانید ادوات بچینید!', '⚠️');
+        const side = getPlayerSideForPoint(clickX, clickY);
+        if (side !== currentPlayer) {
+          return showToast('تنها در نیمه قلمرو خودتان (سمت خط تا) مجاز به استقرار هستید!', '⚠️');
         }
 
         if (selectedBuyType === 'boat') {
-          if (terrain !== 'river' || !isPointInWater(xr, yr)) {
-            return showToast('قایق جنگی تنها در پهنه آبی رودخانه مستقر می‌شود!', '⚠️');
+          if (!isPointInWater(xr, yr)) {
+            return showToast('قایق فقط در پهنه آبی رودخانه مستقر می‌شود!', '⚠️');
           }
-        } else if (terrain === 'river' && isPointInWater(xr, yr)) {
-          return showToast('نیروهای زمینی و هوایی نمی‌توانند داخل آب مستقر شوند!', '⚠️');
+        } else if (isPointInWater(xr, yr) && selectedBuyType !== 'plane') {
+          return showToast('نیروهای زمینی و کارخانه نمی‌توانند داخل آب مستقر شوند!', '⚠️');
         }
 
-        if (terrain === 'obstacles' && isPointInObstacle(xr, yr)) {
-          return showToast('استقرار بر روی سنگرهای بتنی غیرمجاز است!', '⚠️');
+        if (checkNaturalObstacleCollision(clickX, clickY)) {
+          return showToast('استقرار بر روی لکه جوهر یا سوراخ کاغذ مجاز نیست!', '⚠️');
         }
 
         const cost = SPECS[selectedBuyType].cost;
-        const curCoins = isP1 ? p1Coins : p2Coins;
+        const curCoins = currentPlayer === 1 ? p1Coins : p2Coins;
         if (curCoins < cost) {
-          return showToast('سکه کافی برای خرید این واحد رزمی ندارید!', '💰');
+          return showToast('سکه کافی برای خرید این واحد ندارید!', '💰');
         }
 
         units.push({
@@ -2018,27 +2104,33 @@
           hp: SPECS[selectedBuyType].hp,
           maxHp: SPECS[selectedBuyType].hp,
           upgrades: { extraHp: 0, boost: 0, windRes: false },
+          cooldownRemaining: 0,
           isDestroyed: false
         });
 
-        if (isP1) p1Coins -= cost;
+        if (currentPlayer === 1) p1Coins -= cost;
         else p2Coins -= cost;
 
         playSfx('dot');
-        spawnInkSplatter(clickX, clickY, isP1 ? '#2563eb' : '#dc2626', 8);
+        spawnInkSplatter(clickX, clickY, currentPlayer === 1 ? '#2563eb' : '#dc2626', 8);
         updateUI();
-      }
-      // 3. Battle Phase (Firing)
-      else if (phase === 'battle') {
-        const isP1 = currentPlayer === 1;
-        const validSide = isP1 ? clickX < midX - 10 : clickX > midX + 10;
-        if (!validSide) {
-          return showToast('نقطه شلیک را باید در نیمه زمین خودتان علامت بزنید!', '⚠️');
+      } else if (phase === 'battle') {
+        const side = getPlayerSideForPoint(clickX, clickY);
+        if (side !== currentPlayer) {
+          return showToast('باید در نیمه زمین خودتان نقطه شلیک را علامت بزنید!', '⚠️');
         }
 
         const firing = units.find(u => u.id === selectedFiringUnitId);
         if (!firing || firing.isDestroyed) {
-          return showToast('ابتدا یکی از ادوات زنده را جهت شلیک انتخاب کنید!', '🎯');
+          return showToast('ابتدا یکی از ادوات زنده را انتخاب کنید!', '🎯');
+        }
+
+        if (!SPECS[firing.type].canShoot) {
+          return showToast('کارخانه واحد تولیدی است و توانایی شلیک ندارد!', '🏭');
+        }
+
+        if (firing.cooldownRemaining > 0) {
+          return showToast('این واحد در حال استراحت و خنک‌شدن است (۱ نوبت)!', '⏳');
         }
 
         triggerShot(xr, yr, currentPlayer, firing);
@@ -2063,26 +2155,18 @@
           showToast('نوبت چیدمان بازیکن ۲ 🔴', '🚩');
         } else {
           phase = 'battle';
-          currentPlayer = 1;
-          myPlayerId = 1;
-          updateUI();
-          showToast('نبرد آتشین آغاز شد! شلیک کنید! ⚔️', '🔥');
+          startBattleTurn(1);
         }
       } else if (mode === 'ai') {
         spawnAI();
         phase = 'battle';
-        currentPlayer = 1;
-        myPlayerId = 1;
-        updateUI();
-        showToast('نبرد با ارتش هوش مصنوعی آغاز شد! ⚔️', '🤖');
+        startBattleTurn(1);
       }
     }
 
     function spawnAI() {
-      let b = 1000;
-      const list = terrain === 'river'
-        ? ['plane', 'boat', 'tank', 'soldier']
-        : ['plane', 'tank', 'tank', 'soldier'];
+      let b = startingBudget;
+      const list = ['plane', 'factory', 'tank', 'boat', 'soldier'];
 
       list.forEach(t => {
         if (b >= SPECS[t].cost) {
@@ -2092,15 +2176,14 @@
             const xr = 0.55 + Math.random() * 0.38;
             let yr = 0.15 + Math.random() * 0.7;
 
-            if (t === 'boat') {
-              yr = 0.76 + Math.random() * 0.18;
-            } else if (terrain === 'river' && isPointInWater(xr, yr)) {
-              yr = 0.15 + Math.random() * 0.5;
-            }
+            if (t === 'boat') yr = 0.76 + Math.random() * 0.18;
+            else if (isPointInWater(xr, yr) && t !== 'plane') yr = 0.15 + Math.random() * 0.5;
 
-            if (terrain === 'obstacles' && isPointInObstacle(xr, yr)) {
-              continue;
-            }
+            const px = xr * canvas.width;
+            const py = yr * canvas.height;
+
+            if (getPlayerSideForPoint(px, py) !== 2) continue;
+            if (checkNaturalObstacleCollision(px, py)) continue;
 
             units.push({
               id: 'ai-' + Math.random(),
@@ -2111,6 +2194,7 @@
               hp: SPECS[t].hp,
               maxHp: SPECS[t].hp,
               upgrades: { extraHp: 0, boost: 0, windRes: false },
+              cooldownRemaining: 0,
               isDestroyed: false
             });
             b -= SPECS[t].cost;
@@ -2121,9 +2205,40 @@
       p2Coins = b;
     }
 
-    /* ==========================================================================
-       FIRING & 3D FOLD SIMULATION
-       ========================================================================== */
+    function startBattleTurn(player) {
+      currentPlayer = player;
+      if (mode === 'local') myPlayerId = player;
+      turnCount++;
+
+      units.forEach(u => {
+        if (u.player === currentPlayer && u.cooldownRemaining > 0) {
+          u.cooldownRemaining -= 1;
+        }
+      });
+
+      const aliveFactories = units.filter(u => u.player === currentPlayer && u.type === 'factory' && !u.isDestroyed);
+      if (aliveFactories.length > 0) {
+        const bonus = aliveFactories.length * 50;
+        if (currentPlayer === 1) p1Coins += bonus;
+        else p2Coins += bonus;
+
+        aliveFactories.forEach(f => {
+          spawnCoinSparks(f.xRatio * canvas.width, f.yRatio * canvas.height);
+        });
+        playSfx('coin');
+        showToast(`🏭 کارخانه‌ها درآمد تولید کردند: +${bonus} 🪙`, '💰');
+      }
+
+      randomizeWind();
+      updateUI();
+
+      if (phase === 'battle') {
+        if (mode === 'ai' && currentPlayer === 2) {
+          setTimeout(executeAITurn, 1200);
+        }
+      }
+    }
+
     function triggerShot(srcXR, srcYR, shooter, firing) {
       isAnimating = true;
       playSfx('dot');
@@ -2135,26 +2250,26 @@
       const col = shooter === 1 ? '#2563eb' : '#dc2626';
 
       spawnInkSplatter(startX, startY, col, 8);
+      firing.cooldownRemaining = 1;
 
       const inkR = (SPECS[firing.type].inkR + firing.upgrades.boost * 2.5) * unitScale;
       const windEffX = firing.upgrades.windRes ? wind.xPx * 0.5 : wind.xPx;
       const windEffY = firing.upgrades.windRes ? wind.yPx * 0.5 : wind.yPx;
 
-      // Mathematical Fold Inversion: X reflects across center (1 - x), Y carries forward
-      const tgtXR = 1 - srcXR + (wind.active ? windEffX / w : 0);
-      const tgtYR = srcYR + (wind.active ? windEffY / h : 0);
+      const reflected = reflectAcrossFoldLine(startX, startY);
+      const targetX = reflected.rx + (wind.active ? windEffX : 0);
+      const targetY = reflected.ry + (wind.active ? windEffY : 0);
+      const tgtXR = targetX / w;
+      const tgtYR = targetY / h;
 
-      foldOverlay.className = 'fold-overlay ' + (shooter === 1 ? 'p1' : 'p2');
       foldOverlay.style.display = 'block';
 
       setTimeout(() => {
         const targetPlayer = shooter === 1 ? 2 : 1;
-        const targetX = tgtXR * w;
-        const targetY = tgtYR * h;
-        const isBlocked = (terrain === 'obstacles' && isPointInObstacle(tgtXR, tgtYR));
+        const obstacleHit = checkNaturalObstacleCollision(targetX, targetY);
         let hit = null;
 
-        if (!isBlocked) {
+        if (!obstacleHit) {
           for (const u of units) {
             if (u.player === targetPlayer && !u.isDestroyed) {
               const dist = Math.hypot(u.xRatio * w - targetX, u.yRatio * h - targetY);
@@ -2166,10 +2281,10 @@
           }
         }
 
-        if (isBlocked) {
+        if (obstacleHit) {
           playSfx('hit');
-          spawnExplosionFX(targetX, targetY);
-          showToast('🛡️ تیر به سنگر بتنی برخورد کرد و دفع شد!', '🧱');
+          spawnInkSplatter(targetX, targetY, '#0f172a', inkR);
+          showToast(obstacleHit.type === 'ink_blot' ? 'تیر در لکه جوهر جذب و محو شد!' : 'تیر داخل سوراخ کاغذ افتاد و هدر رفت!', '🛡️');
         } else if (hit) {
           playSfx('hit');
           spawnExplosionFX(targetX, targetY);
@@ -2180,18 +2295,19 @@
             const bounty = SPECS[hit.type].bounty;
             if (shooter === 1) p1Coins += bounty;
             else p2Coins += bounty;
-            showToast(`💥 ${SPECS[hit.type].name} کاملاً منهدم شد! (+${bounty}🪙 غنیمت ۱/۳)`, '🔥');
+
+            showCinematicKill(hit, shooter, firing);
           } else {
-            showToast(`🎯 اصابت موفق به ${SPECS[hit.type].name}! (جان باقیمانده: ${hit.hp})`, '💥');
+            showToast(`🎯 اصابت به ${SPECS[hit.type].name}! (جان باقیمانده: ${hit.hp})`, '💥');
           }
         } else {
-          if (terrain === 'river' && isPointInWater(tgtXR, tgtYR)) {
+          if (isPointInWater(tgtXR, tgtYR)) {
             playSfx('water');
             spawnWaterRipples(targetX, targetY);
-            showToast('🌊 گلوله جوهر در آب رودخانه گم شد!', '💧');
+            showToast('🌊 تیر در آب رودخانه به خطا رفت!', '💧');
           } else {
             spawnInkSplatter(targetX, targetY, col, inkR);
-            showToast('💨 تیر به هدف اصابت نکرد و خطا رفت!', '💨');
+            showToast('💨 تیر به هدف نخورد و خطا رفت!', '💨');
           }
         }
 
@@ -2211,38 +2327,38 @@
         checkWin();
 
         if (phase !== 'gameover') {
-          randomizeWind();
-          currentPlayer = shooter === 1 ? 2 : 1;
-          if (mode === 'local') myPlayerId = currentPlayer;
-          updateUI();
-
-          if (mode === 'ai' && currentPlayer === 2) {
-            setTimeout(executeAITurn, 1100);
-          }
+          const nextPlayer = shooter === 1 ? 2 : 1;
+          startBattleTurn(nextPlayer);
         }
-      }, 1400);
+      }, 1300);
     }
 
     function executeAITurn() {
       if (phase !== 'gameover' && mode === 'ai') {
         const p1Alive = units.filter(u => u.player === 1 && !u.isDestroyed);
-        const aiAlive = units.filter(u => u.player === 2 && !u.isDestroyed);
-        if (aiAlive.length === 0) return;
+        const aiShooters = units.filter(u => u.player === 2 && !u.isDestroyed && SPECS[u.type].canShoot && u.cooldownRemaining === 0);
 
-        const firing = aiAlive[Math.floor(Math.random() * aiAlive.length)];
-        let shotX = 0.55 + Math.random() * 0.38;
-        let shotY = 0.15 + Math.random() * 0.7;
-
-        // Smart Aiming: 65% probability of calculating inverted coordinate toward alive player units
-        if (p1Alive.length > 0 && Math.random() < 0.65) {
-          const target = p1Alive[Math.floor(Math.random() * p1Alive.length)];
-          const windCompX = wind.active ? (wind.xPx / canvas.width) : 0;
-          const windCompY = wind.active ? (wind.yPx / canvas.height) : 0;
-          shotX = 1 - target.xRatio - windCompX + (Math.random() - 0.5) * 0.04;
-          shotY = target.yRatio - windCompY + (Math.random() - 0.5) * 0.04;
+        if (aiShooters.length === 0) {
+          showToast('🤖 ارتش هوش مصنوعی واحد آماده شلیک نداشت (در حال استراحت)', '⏳');
+          setTimeout(() => startBattleTurn(1), 1000);
+          return;
         }
 
-        triggerShot(shotX, shotY, 2, firing);
+        const firing = aiShooters[Math.floor(Math.random() * aiShooters.length)];
+        let targetX = canvas.width * 0.25;
+        let targetY = canvas.height * 0.45;
+
+        if (p1Alive.length > 0 && Math.random() < 0.7) {
+          const target = p1Alive[Math.floor(Math.random() * p1Alive.length)];
+          targetX = target.xRatio * canvas.width;
+          targetY = target.yRatio * canvas.height;
+        }
+
+        const inverseReflect = reflectAcrossFoldLine(targetX, targetY);
+        const shotXR = (inverseReflect.rx - (wind.active ? wind.xPx : 0)) / canvas.width;
+        const shotYR = (inverseReflect.ry - (wind.active ? wind.yPx : 0)) / canvas.height;
+
+        triggerShot(shotXR, shotYR, 2, firing);
       }
     }
 
@@ -2253,27 +2369,16 @@
       if (p2Alive === 0 && units.some(u => u.player === 2)) {
         phase = 'gameover';
         playSfx('victory');
-        if (window.confetti) {
-          confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
-        }
-        setTimeout(() => {
-          alert('🏆 تبریک باشکوه! ارتش بازیکن ۱ (آبی) به پیروزی نهایی دست یافت!');
-        }, 500);
+        if (window.confetti) confetti({ particleCount: 140, spread: 90, origin: { y: 0.6 } });
+        setTimeout(() => alert('🏆 پیروزی درخشان! بازیکن ۱ تمامی نیروهای دشمن را متلاشی کرد!'), 400);
       } else if (p1Alive === 0 && units.some(u => u.player === 1)) {
         phase = 'gameover';
         playSfx('victory');
-        if (window.confetti) {
-          confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
-        }
-        setTimeout(() => {
-          alert('🏆 پیروزی نهایی متعلق به بازیکن ۲ (قرمز) شد!');
-        }, 500);
+        if (window.confetti) confetti({ particleCount: 140, spread: 90, origin: { y: 0.6 } });
+        setTimeout(() => alert('🏆 پیروزی نهایی متعلق به بازیکن ۲ شد!'), 400);
       }
     }
 
-    /* ==========================================================================
-       UPGRADES MODAL
-       ========================================================================== */
     function openUpgradeModal(unit) {
       currentUpgradingUnit = unit;
       document.getElementById('upgradeTitle').innerText = `🛠️ ارتقای رزمی ${SPECS[unit.type].name} (جان: ${unit.hp}/${unit.maxHp})`;
@@ -2291,9 +2396,7 @@
       const cost = (type === 'hp' ? 120 : type === 'radius' ? 90 : 100);
       const curCoins = currentUpgradingUnit.player === 1 ? p1Coins : p2Coins;
 
-      if (curCoins < cost) {
-        return showToast('سکه کافی برای خرید این ارتقا ندارید!', '💰');
-      }
+      if (curCoins < cost) return showToast('سکه کافی برای خرید این ارتقا ندارید!', '💰');
 
       if (type === 'hp') {
         currentUpgradingUnit.hp += 1;
@@ -2305,7 +2408,7 @@
         showToast('شعاع ترکش جوهر افزایش یافت ⚡', '💥');
       } else if (type === 'wind') {
         if (currentUpgradingUnit.upgrades.windRes) {
-          return showToast('این نیرو قبلاً به سیستم پایداری باد مجهز شده است!', 'ℹ️');
+          return showToast('این نیرو قبلاً سیستم پایداری باد را فعال کرده!', 'ℹ️');
         }
         currentUpgradingUnit.upgrades.windRes = true;
         showToast('ناوبری پایدار در برابر باد فعال شد 💨', '🛡️');
@@ -2319,44 +2422,62 @@
       closeUpgradeModal();
     }
 
-    /* ==========================================================================
-       UI UPDATES
-       ========================================================================== */
     function updateUI() {
       const p1Alive = units.filter(u => u.player === 1 && !u.isDestroyed).length;
       const p2Alive = units.filter(u => u.player === 2 && !u.isDestroyed).length;
 
       document.getElementById('p1CoinsText').innerText = p1Coins;
       document.getElementById('p2CoinsText').innerText = p2Coins;
-      document.getElementById('p1UnitsText').innerText = `${p1Alive} زنده`;
-      document.getElementById('p2UnitsText').innerText = `${p2Alive} زنده`;
+      document.getElementById('p1UnitsText').innerText = `${p1Alive} نیرو`;
+      document.getElementById('p2UnitsText').innerText = `${p2Alive} نیرو`;
 
-      const p1Badge = document.getElementById('p1Badge');
-      const p2Badge = document.getElementById('p2Badge');
-      p1Badge.className = 'player-card p1 ' + (currentPlayer === 1 ? 'active-turn' : '');
-      p2Badge.className = 'player-card p2 ' + (currentPlayer === 2 ? 'active-turn' : '');
+      const p1Facs = units.filter(u => u.player === 1 && u.type === 'factory' && !u.isDestroyed).length;
+      const p2Facs = units.filter(u => u.player === 2 && u.type === 'factory' && !u.isDestroyed).length;
+
+      const p1FacEl = document.getElementById('p1FactoryIncome');
+      const p2FacEl = document.getElementById('p2FactoryIncome');
+      if (p1Facs > 0) {
+        p1FacEl.style.display = 'inline-block';
+        p1FacEl.innerText = `+${p1Facs * 50}🪙/نوبت`;
+      } else p1FacEl.style.display = 'none';
+
+      if (p2Facs > 0) {
+        p2FacEl.style.display = 'inline-block';
+        p2FacEl.innerText = `+${p2Facs * 50}🪙/نوبت`;
+      } else p2FacEl.style.display = 'none';
+
+      document.getElementById('p1Badge').className = 'player-card p1 ' + (currentPlayer === 1 ? 'active-turn' : '');
+      document.getElementById('p2Badge').className = 'player-card p2 ' + (currentPlayer === 2 ? 'active-turn' : '');
 
       if (phase === 'deployment') {
         document.getElementById('shopBox').style.display = 'block';
         document.getElementById('firingBar').style.display = 'none';
         document.getElementById('shopTitle').innerText =
-          `🛒 انبار تسلیحات (نوبت استقرار بازیکن ${currentPlayer} ${currentPlayer === 1 ? '🔵' : '🔴'}) - برای ارتقا روی ادوات کلیک کنید`;
+          `🛒 انبار تسلیحات و صنایع (نوبت استقرار بازیکن ${currentPlayer} ${currentPlayer === 1 ? '🔵' : '🔴'})`;
       } else if (phase === 'battle') {
         document.getElementById('shopBox').style.display = 'none';
         document.getElementById('firingBar').style.display = 'flex';
 
-        const aliveUnits = units.filter(u => u.player === currentPlayer && !u.isDestroyed);
+        const aliveShooters = units.filter(u => u.player === currentPlayer && !u.isDestroyed && SPECS[u.type].canShoot);
         const container = document.getElementById('firingUnitsContainer');
         container.innerHTML = '';
 
-        if (!selectedFiringUnitId || !aliveUnits.some(u => u.id === selectedFiringUnitId)) {
-          if (aliveUnits.length > 0) selectedFiringUnitId = aliveUnits[0].id;
+        if (!selectedFiringUnitId || !aliveShooters.some(u => u.id === selectedFiringUnitId)) {
+          const readyShooter = aliveShooters.find(u => u.cooldownRemaining === 0);
+          if (readyShooter) selectedFiringUnitId = readyShooter.id;
+          else if (aliveShooters.length > 0) selectedFiringUnitId = aliveShooters[0].id;
         }
 
-        aliveUnits.forEach((u, i) => {
+        aliveShooters.forEach((u, i) => {
           const btn = document.createElement('button');
+          const isReady = u.cooldownRemaining === 0;
           btn.className = (u.id === selectedFiringUnitId ? 'active' : '');
-          btn.innerHTML = `<span>${SPECS[u.type].icon}</span> <span>${SPECS[u.type].name} #${i + 1} (${u.hp}❤️)</span>`;
+          if (!isReady) btn.disabled = true;
+
+          btn.innerHTML = `<span>${SPECS[u.type].icon}</span> <span>${SPECS[u.type].name} #${i + 1} (${u.hp}❤️)</span> ${
+            isReady ? '' : '<span class="cooldown-badge">استراحت ⏳</span>'
+          }`;
+
           btn.onclick = () => {
             selectedFiringUnitId = u.id;
             updateUI();
@@ -2370,7 +2491,6 @@
       mode = m;
       document.getElementById('btnModeLocal').className = m === 'local' ? 'active' : '';
       document.getElementById('btnModeAI').className = m === 'ai' ? 'active' : '';
-      showToast(m === 'ai' ? 'حالت بازی با هوش مصنوعی فعال شد 🤖' : 'حالت دو نفره روی یک سیستم 👥');
       resetGame();
     }
 
@@ -2378,25 +2498,23 @@
       phase = 'deployment';
       currentPlayer = 1;
       myPlayerId = 1;
-      p1Coins = 1000;
-      p2Coins = 1000;
+      turnCount = 1;
+      p1Coins = startingBudget;
+      p2Coins = startingBudget;
       units = [];
       shots = [];
       particles.length = 0;
       selectedFiringUnitId = null;
+      generateNaturalObstacles();
       randomizeWind();
       updateUI();
     }
 
-    // Modal Visibility Helpers
     function openHelpModal() { document.getElementById('helpModal').style.display = 'flex'; }
     function closeHelpModal() { document.getElementById('helpModal').style.display = 'none'; }
     function openOnlineModal() { document.getElementById('onlineModal').style.display = 'flex'; }
     function closeOnlineModal() { document.getElementById('onlineModal').style.display = 'none'; }
 
-    /* ==========================================================================
-       PEERJS WEBRTC ONLINE MULTIPLAYER
-       ========================================================================== */
     let peer = null, peerConn = null;
 
     function createRoom() {
@@ -2414,7 +2532,7 @@
         const display = document.getElementById('roomCodeDisplay');
         display.style.display = 'block';
         display.innerText = id;
-        document.getElementById('peerStatus').innerText = 'اتاق ایجاد شد! کد بالا را برای دوستتان بفرستید...';
+        document.getElementById('peerStatus').innerText = 'اتاق ایجاد شد! کد بالا را برای دوستتان ارسال کنید...';
       });
 
       peer.on('connection', (conn) => {
@@ -2473,8 +2591,8 @@
       });
     }
 
-    // Initialize Application
     initPaperTexture();
+    generateNaturalObstacles();
     randomizeWind();
     updateUI();
     requestAnimationFrame(render);
