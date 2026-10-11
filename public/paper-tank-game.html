@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>بازی تانک کاغذی - نوستالژی تا کردن کاغذ</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+  <!-- PeerJS for direct P2P WebRTC multiplayer without backend server -->
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <style>
+    :root {
+      --p1-blue: #1d4ed8;
+      --p2-red: #dc2626;
+      --paper-bg: #fdfbf7;
+    }
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: 'Vazirmatn', sans-serif;
+      background: #e9dfca;
+      color: #2c3e50;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 12px;
+    }
+    .header h1 {
+      font-size: 24px;
+      font-weight: 900;
+      color: #1e293b;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .header p {
+      font-size: 13px;
+      color: #64748b;
+      margin-top: 4px;
+    }
+    /* Controls Bar */
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      margin-bottom: 14px;
+      background: #f4ede0;
+      padding: 8px 14px;
+      border-radius: 12px;
+      border: 1px solid #dcd1ba;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+    }
+    button, select, input {
+      font-family: 'Vazirmatn', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 6px 14px;
+      border-radius: 8px;
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      color: #334155;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    button:hover {
+      background: #f8fafc;
+      border-color: #94a3b8;
+    }
+    button.active {
+      background: #1e293b;
+      color: #ffffff;
+      border-color: #1e293b;
+    }
+    button.primary {
+      background: #2563eb;
+      color: #ffffff;
+      border-color: #1d4ed8;
+    }
+    button.primary:hover {
+      background: #1d4ed8;
+    }
+    /* Info Row */
+    .info-bar {
+      width: 100%;
+      max-w: 860px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 8px;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+    }
+    .badge.p1 {
+      border-color: #93c5fd;
+      color: #1e40af;
+    }
+    .badge.p2 {
+      border-color: #fca5a5;
+      color: #991b1b;
+    }
+    .badge.turn-active {
+      box-shadow: 0 0 0 2px currentColor;
+    }
+    /* Canvas Container */
+    .board-wrapper {
+      position: relative;
+      width: 100%;
+      max-width: 860px;
+      height: 520px;
+      background: var(--paper-bg);
+      border-radius: 12px;
+      border: 2px solid #cebf9f;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.15);
+      overflow: hidden;
+      perspective: 1200px;
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      cursor: crosshair;
+    }
+    /* 3D Fold Overlay */
+    .fold-overlay {
+      display: none;
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 50%;
+      background: #faf5eb;
+      z-index: 20;
+      box-shadow: 0 0 30px rgba(0,0,0,0.35);
+      border: 1px solid #d5caa8;
+    }
+    .fold-overlay.p1 {
+      left: 0;
+      transform-origin: right center;
+      animation: flipP1 1.4s ease-in-out forwards;
+    }
+    .fold-overlay.p2 {
+      right: 0;
+      transform-origin: left center;
+      animation: flipP2 1.4s ease-in-out forwards;
+    }
+    @keyframes flipP1 {
+      0% { transform: rotateY(0deg); }
+      45% { transform: rotateY(176deg); }
+      65% { transform: rotateY(176deg); }
+      100% { transform: rotateY(0deg); }
+    }
+    @keyframes flipP2 {
+      0% { transform: rotateY(0deg); }
+      45% { transform: rotateY(-176deg); }
+      65% { transform: rotateY(-176deg); }
+      100% { transform: rotateY(0deg); }
+    }
+    .toast {
+      position: absolute;
+      top: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(15, 23, 42, 0.9);
+      color: #fff;
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 700;
+      pointer-events: none;
+      z-index: 30;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+    }
+    /* Peer Modal */
+    .modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 50;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .modal-card {
+      background: #ffffff;
+      border-radius: 14px;
+      padding: 20px;
+      max-width: 440px;
+      width: 100%;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.25);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>📝 بازی نوستالژیک تانک کاغذی (تا کردن برگه)</h1>
+    <p>در زمین خودت جوهر بریز، برگه رو تا کن و تانک‌های حریف رو بسوزون!</p>
+  </div>
+
+  <div class="controls">
+    <button id="btnLocal" class="active" onclick="setMode('local')">دونفره روی یک گوشی/سیستم</button>
+    <button id="btnAI" onclick="setMode('ai')">بازی با هوش مصنوعی</button>
+    <button id="btnOnline" onclick="openOnlineModal()">آنلاین با کد اتاق (PeerJS)</button>
+    <button id="btnReset" onclick="resetGame()">شروع مجدد 🔄</button>
+    <button id="btnSound" onclick="toggleSound()">صدا: روشن 🔊</button>
+    <button id="btnHide" onclick="toggleHide()">مخفی‌سازی تانک‌های حریف 🙈</button>
+  </div>
+
+  <div class="info-bar">
+    <div id="p1Badge" class="badge p1 turn-active">
+      <span>🔵 بازیکن ۱ (آبی):</span>
+      <span id="p1TanksCount">۵ تانک</span>
+    </div>
+    <div id="statusText" style="color: #475569; font-size: 14px;">
+      نوبت بازیکن ۱: روی زمین آبی کلیک کن تا ۵ تانک بچینی
+    </div>
+    <div id="p2Badge" class="badge p2">
+      <span>🔴 بازیکن ۲ (قرمز):</span>
+      <span id="p2TanksCount">۵ تانک</span>
+    </div>
+  </div>
+
+  <div class="board-wrapper" id="boardWrapper">
+    <canvas id="gameCanvas" width="840" height="520"></canvas>
+    <div id="foldOverlay" class="fold-overlay"></div>
+    <div id="toast" class="toast" style="display: none;"></div>
+  </div>
+
+  <!-- Online Multiplayer Modal -->
+  <div id="onlineModal" class="modal">
+    <div class="modal-card">
+      <h3 style="font-size: 16px; margin-bottom: 12px; color: #1e293b;">🌐 بازی آنلاین تحت وب بدون سرور (P2P)</h3>
+      <p style="font-size: 13px; color: #64748b; margin-bottom: 14px;">
+        با یکی از دو روش زیر به دوستت وصل شو (حتی روی دو سیستم یا گوشی مختلف):
+      </p>
+
+      <div style="background: #f8fafc; border: 1px dashed #cbd5e1; padding: 12px; border-radius: 8px; margin-bottom: 14px;">
+        <div style="font-size: 12px; color: #475569; margin-bottom: 6px;">روش اول: ساخت اتاق جدید (شما بازیکن ۱ می‌شوید)</div>
+        <button class="primary" style="width: 100%;" onclick="createRoom()">ایجاد کد اتاق جدید 🎲</button>
+        <div id="roomCodeDisplay" style="display: none; margin-top: 8px; font-weight: bold; font-size: 15px; color: #1d4ed8; text-align: center;"></div>
+      </div>
+
+      <div style="background: #f8fafc; border: 1px dashed #cbd5e1; padding: 12px; border-radius: 8px; margin-bottom: 14px;">
+        <div style="font-size: 12px; color: #475569; margin-bottom: 6px;">روش دوم: ورود به اتاق دوست (شما بازیکن ۲ می‌شوید)</div>
+        <div style="display: flex; gap: 6px;">
+          <input type="text" id="joinCodeInput" placeholder="کد اتاق را وارد کنید..." style="flex: 1;" />
+          <button class="primary" onclick="joinRoom()">اتصال 🔗</button>
+        </div>
+      </div>
+
+      <div id="peerStatus" style="font-size: 12px; color: #ea580c; margin-bottom: 12px; text-align: center;"></div>
+      <button style="width: 100%;" onclick="closeOnlineModal()">بستن پنجره</button>
+    </div>
+  </div>
+
+  <script>
+    // --- Web Audio API Sound Effects ---
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    let audioCtx = null;
+    let soundEnabled = true;
+
+    function initAudio() {
+      if (!audioCtx) audioCtx = new AudioCtx();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+    }
+
+    function toggleSound() {
+      soundEnabled = !soundEnabled;
+      document.getElementById('btnSound').innerText = soundEnabled ? 'صدا: روشن 🔊' : 'صدا: خاموش 🔇';
+    }
+
+    function playSound(type) {
+      if (!soundEnabled) return;
+      initAudio();
+      if (!audioCtx) return;
+
+      if (type === 'dot') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.frequency.setValueAtTime(540, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(120, audioCtx.currentTime + 0.04);
+        gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.04);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.05);
+      } else if (type === 'fold') {
+        const bufferSize = audioCtx.sampleRate * 0.4;
+        const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const output = noiseBuffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) output[i] = Math.random() * 2 - 1;
+        const whiteNoise = audioCtx.createBufferSource();
+        whiteNoise.buffer = noiseBuffer;
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(400, audioCtx.currentTime);
+        filter.frequency.linearRampToValueAtTime(1400, audioCtx.currentTime + 0.2);
+        filter.frequency.linearRampToValueAtTime(500, audioCtx.currentTime + 0.4);
+        const gain = audioCtx.createGain();
+        gain.gain.setValueAtTime(0.01, audioCtx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.25, audioCtx.currentTime + 0.15);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
+        whiteNoise.connect(filter);
+        filter.connect(gain);
+        gain.connect(audioCtx.destination);
+        whiteNoise.start();
+        whiteNoise.stop(audioCtx.currentTime + 0.4);
+      } else if (type === 'hit') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(160, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(30, audioCtx.currentTime + 0.35);
+        gain.gain.setValueAtTime(0.35, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.35);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.35);
+      }
+    }
+
+    // --- Game State ---
+    let mode = 'local'; // 'local' | 'ai' | 'online'
+    let phase = 'deployment'; // 'deployment' | 'battle' | 'gameover'
+    let currentPlayer = 1;
+    let myPlayerId = 1; // 1 or 2
+    let hideOpponent = false;
+    let isAnimating = false;
+
+    let tanks = []; // { id, xRatio, yRatio, player, isDestroyed }
+    let shots = []; // { srcX, srcY, tgtX, tgtY, player, isHit }
+
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const foldOverlay = document.getElementById('foldOverlay');
+    const toast = document.getElementById('toast');
+
+    function showToast(msg) {
+      toast.innerText = msg;
+      toast.style.display = 'block';
+      setTimeout(() => { toast.style.display = 'none'; }, 2500);
+    }
+
+    function toggleHide() {
+      hideOpponent = !hideOpponent;
+      document.getElementById('btnHide').innerText = hideOpponent ? 'نمایش تانک‌های حریف 👀' : 'مخفی‌سازی تانک‌های حریف 🙈';
+      draw();
+    }
+
+    // --- Drawing Code ---
+    function draw() {
+      const w = canvas.width;
+      const h = canvas.height;
+      const midX = w / 2;
+
+      // 1. Background Paper
+      ctx.fillStyle = '#fdfbf6';
+      ctx.fillRect(0, 0, w, h);
+
+      // Grid
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = 'rgba(120, 160, 220, 0.22)';
+      ctx.beginPath();
+      for (let x = 0; x <= w; x += 24) { ctx.moveTo(x, 0); ctx.lineTo(x, h); }
+      for (let y = 0; y <= h; y += 24) { ctx.moveTo(0, y); ctx.lineTo(w, y); }
+      ctx.stroke();
+
+      // Margin red lines
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = 'rgba(239, 68, 68, 0.35)';
+      ctx.beginPath();
+      ctx.moveTo(35, 0); ctx.lineTo(35, h);
+      ctx.moveTo(w - 35, 0); ctx.lineTo(w - 35, h);
+      ctx.stroke();
+
+      // Crease (خط تا)
+      const grad = ctx.createLinearGradient(midX - 25, 0, midX + 25, 0);
+      grad.addColorStop(0, 'rgba(0,0,0,0)');
+      grad.addColorStop(0.5, 'rgba(0,0,0,0.12)');
+      grad.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(midX - 25, 0, 50, h);
+
+      ctx.beginPath();
+      ctx.setLineDash([8, 6]);
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = 'rgba(75, 85, 99, 0.65)';
+      ctx.moveTo(midX, 0); ctx.lineTo(midX, h);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      ctx.font = '12px Vazirmatn, sans-serif';
+      ctx.fillStyle = 'rgba(107, 114, 128, 0.7)';
+      ctx.textAlign = 'center';
+      ctx.fillText('✂ خط تا کردن کاغذ', midX, 22);
+
+      // 2. Draw Tanks
+      tanks.forEach(tank => {
+        const isHidden = hideOpponent && mode === 'local' && tank.player !== currentPlayer && !tank.isDestroyed;
+        if (isHidden) return;
+
+        const x = tank.xRatio * w;
+        const y = tank.yRatio * h;
+        const color = tank.player === 1 ? '#1d4ed8' : '#dc2626';
+
+        ctx.save();
+        ctx.translate(x, y);
+
+        if (tank.isDestroyed) {
+          ctx.globalAlpha = 0.5;
+        }
+
+        ctx.lineWidth = 2.2;
+        ctx.strokeStyle = color;
+        ctx.fillStyle = tank.player === 1 ? 'rgba(37,99,235,0.1)' : 'rgba(220,38,38,0.1)';
+
+        // Hull
+        ctx.strokeRect(-16, -11, 32, 22);
+        ctx.fillRect(-16, -11, 32, 22);
+
+        // Turret
+        ctx.beginPath();
+        ctx.arc(0, 0, 7, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Cannon
+        const dir = tank.player === 1 ? 1 : -1;
+        ctx.beginPath();
+        ctx.lineWidth = 3;
+        ctx.moveTo(dir * 7, 0);
+        ctx.lineTo(dir * 20, 0);
+        ctx.stroke();
+
+        ctx.restore();
+
+        // Destroyed scribbles
+        if (tank.isDestroyed) {
+          ctx.save();
+          ctx.translate(x, y);
+          ctx.lineWidth = 2.5;
+          ctx.strokeStyle = color;
+          ctx.beginPath();
+          ctx.moveTo(-18, -16); ctx.lineTo(18, 16);
+          ctx.moveTo(-18, 16); ctx.lineTo(18, -16);
+          ctx.stroke();
+          ctx.font = 'bold 11px Vazirmatn, sans-serif';
+          ctx.fillStyle = '#dc2626';
+          ctx.textAlign = 'center';
+          ctx.fillText('منهدم شد', 0, -22);
+          ctx.restore();
+        }
+      });
+
+      // 3. Draw Shots
+      shots.forEach(s => {
+        const sx = s.srcX * w;
+        const sy = s.srcY * h;
+        const tx = s.tgtX * w;
+        const ty = s.tgtY * h;
+        const col = s.player === 1 ? '#1d4ed8' : '#dc2626';
+
+        // Origin dot
+        ctx.fillStyle = col;
+        ctx.beginPath();
+        ctx.arc(sx, sy, 5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Mirrored imprint
+        ctx.beginPath();
+        ctx.arc(tx, ty, 5.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (s.isHit) {
+          ctx.strokeStyle = '#ef4444';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.arc(tx, ty, 14, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      });
+    }
+
+    // --- Click Handler ---
+    canvas.addEventListener('click', (e) => {
+      if (isAnimating || phase === 'gameover') return;
+
+      const rect = canvas.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const clickY = e.clientY - rect.top;
+      const midX = canvas.width / 2;
+
+      const xRatio = clickX / canvas.width;
+      const yRatio = clickY / canvas.height;
+
+      if (phase === 'deployment') {
+        handleDeploymentClick(xRatio, yRatio, clickX, midX);
+      } else if (phase === 'battle') {
+        handleShotClick(xRatio, yRatio, clickX, midX);
+      }
+    });
+
+    function handleDeploymentClick(xRatio, yRatio, clickX, midX) {
+      if (mode === 'online' && currentPlayer !== myPlayerId) return;
+
+      if (currentPlayer === 1) {
+        if (clickX >= midX - 15 || clickX <= 30) return;
+        tanks.push({ id: 'p1-' + Date.now(), xRatio, yRatio, player: 1, isDestroyed: false });
+        playSound('dot');
+        const p1Count = tanks.filter(t => t.player === 1).length;
+        if (p1Count >= 5) {
+          if (mode === 'ai') {
+            spawnAITanks();
+            phase = 'battle';
+            currentPlayer = 1;
+            updateStatus();
+          } else {
+            currentPlayer = 2;
+            updateStatus();
+          }
+        } else {
+          updateStatus();
+        }
+      } else {
+        if (clickX <= midX + 15 || clickX >= canvas.width - 30) return;
+        tanks.push({ id: 'p2-' + Date.now(), xRatio, yRatio, player: 2, isDestroyed: false });
+        playSound('dot');
+        const p2Count = tanks.filter(t => t.player === 2).length;
+        if (p2Count >= 5) {
+          phase = 'battle';
+          currentPlayer = 1;
+          updateStatus();
+          showToast('نبرد آغاز شد! شلیک کنید!');
+        } else {
+          updateStatus();
+        }
+      }
+      draw();
+    }
+
+    function spawnAITanks() {
+      while (tanks.filter(t => t.player === 2).length < 5) {
+        const xRatio = 0.55 + Math.random() * 0.35;
+        const yRatio = 0.12 + Math.random() * 0.76;
+        tanks.push({ id: 'ai-' + Math.random(), xRatio, yRatio, player: 2, isDestroyed: false });
+      }
+    }
+
+    function handleShotClick(xRatio, yRatio, clickX, midX) {
+      if (mode === 'online' && currentPlayer !== myPlayerId) return;
+
+      const isP1 = currentPlayer === 1;
+      if (isP1 && clickX >= midX - 10) return;
+      if (!isP1 && clickX <= midX + 10) return;
+
+      triggerShot(xRatio, yRatio, currentPlayer);
+
+      if (mode === 'online' && peerConn) {
+        peerConn.send({ type: 'SHOOT', xRatio, yRatio, player: currentPlayer });
+      }
+    }
+
+    function triggerShot(xRatio, yRatio, shootingPlayer) {
+      isAnimating = true;
+      playSound('dot');
+
+      // Formula: Mirrored across middle
+      const tgtXRatio = 1 - xRatio;
+      const tgtYRatio = yRatio;
+
+      // 3D fold animation
+      foldOverlay.className = 'fold-overlay ' + (shootingPlayer === 1 ? 'p1' : 'p2');
+      foldOverlay.style.display = 'block';
+      playSound('fold');
+
+      setTimeout(() => {
+        // Impact evaluation
+        const targetPlayer = shootingPlayer === 1 ? 2 : 1;
+        const w = canvas.width;
+        const h = canvas.height;
+        const targetPixelX = tgtXRatio * w;
+        const targetPixelY = tgtYRatio * h;
+
+        let hitTank = null;
+        for (const tank of tanks) {
+          if (tank.player === targetPlayer && !tank.isDestroyed) {
+            const tx = tank.xRatio * w;
+            const ty = tank.yRatio * h;
+            const dist = Math.hypot(tx - targetPixelX, ty - targetPixelY);
+            if (dist <= 24) {
+              hitTank = tank;
+              break;
+            }
+          }
+        }
+
+        const isHit = !!hitTank;
+        if (isHit) {
+          hitTank.isDestroyed = true;
+          playSound('hit');
+          showToast('💥 تانک دشمن منهدم شد!');
+        } else {
+          showToast('💨 شلیک به خطا رفت!');
+        }
+
+        shots.push({
+          srcX: xRatio,
+          srcY: yRatio,
+          tgtX: tgtXRatio,
+          tgtY: tgtYRatio,
+          player: shootingPlayer,
+          isHit
+        });
+
+        foldOverlay.style.display = 'none';
+        isAnimating = false;
+        checkGameOver();
+
+        if (phase !== 'gameover') {
+          currentPlayer = shootingPlayer === 1 ? 2 : 1;
+          updateStatus();
+          draw();
+
+          // AI turn trigger
+          if (mode === 'ai' && currentPlayer === 2) {
+            setTimeout(executeAITurn, 1000);
+          }
+        } else {
+          draw();
+        }
+      }, 1400);
+    }
+
+    function executeAITurn() {
+      if (phase !== 'gameover' && mode === 'ai') {
+        const p1Alive = tanks.filter(t => t.player === 1 && !t.isDestroyed);
+        let shotX = 0.55 + Math.random() * 0.38;
+        let shotY = 0.15 + Math.random() * 0.7;
+        if (p1Alive.length > 0 && Math.random() < 0.6) {
+          const target = p1Alive[Math.floor(Math.random() * p1Alive.length)];
+          shotX = 1 - target.xRatio + (Math.random() - 0.5) * 0.05;
+          shotY = target.yRatio + (Math.random() - 0.5) * 0.05;
+        }
+        triggerShot(shotX, shotY, 2);
+      }
+    }
+
+    function checkGameOver() {
+      const p1Alive = tanks.filter(t => t.player === 1 && !t.isDestroyed).length;
+      const p2Alive = tanks.filter(t => t.player === 2 && !t.isDestroyed).length;
+
+      if (p2Alive === 0) {
+        phase = 'gameover';
+        alert('🏆 تبریک! بازیکن ۱ تمام تانک‌های حریف را نابود کرد و برنده شد!');
+      } else if (p1Alive === 0) {
+        phase = 'gameover';
+        alert('🏆 بازیکن ۲ پیروز شد!');
+      }
+    }
+
+    function updateStatus() {
+      const p1Count = tanks.filter(t => t.player === 1 && !t.isDestroyed).length;
+      const p2Count = tanks.filter(t => t.player === 2 && !t.isDestroyed).length;
+      document.getElementById('p1TanksCount').innerText = `${p1Count} تانک سالم`;
+      document.getElementById('p2TanksCount').innerText = `${p2Count} تانک سالم`;
+
+      const p1Badge = document.getElementById('p1Badge');
+      const p2Badge = document.getElementById('p2Badge');
+      p1Badge.className = 'badge p1 ' + (currentPlayer === 1 ? 'turn-active' : '');
+      p2Badge.className = 'badge p2 ' + (currentPlayer === 2 ? 'turn-active' : '');
+
+      const status = document.getElementById('statusText');
+      if (phase === 'deployment') {
+        const count = tanks.filter(t => t.player === currentPlayer).length;
+        status.innerText = `چیدمان نوبت بازیکن ${currentPlayer}: تانک (${count}/۵)`;
+      } else if (phase === 'battle') {
+        status.innerText = `نوبت شلیک بازیکن ${currentPlayer} (${currentPlayer === 1 ? 'آبی' : 'قرمز'})`;
+      }
+    }
+
+    function setMode(m) {
+      mode = m;
+      document.getElementById('btnLocal').className = m === 'local' ? 'active' : '';
+      document.getElementById('btnAI').className = m === 'ai' ? 'active' : '';
+      resetGame();
+    }
+
+    function resetGame() {
+      phase = 'deployment';
+      currentPlayer = 1;
+      tanks = [];
+      shots = [];
+      isAnimating = false;
+      updateStatus();
+      draw();
+    }
+
+    // --- PeerJS Online P2P ---
+    let peer = null;
+    let peerConn = null;
+
+    function openOnlineModal() {
+      document.getElementById('onlineModal').style.display = 'flex';
+    }
+    function closeOnlineModal() {
+      document.getElementById('onlineModal').style.display = 'none';
+    }
+
+    function createRoom() {
+      const code = 'paper-' + Math.floor(1000 + Math.random() * 9000);
+      document.getElementById('peerStatus').innerText = 'در حال ارتباط با سرور PeerJS...';
+      peer = new Peer(code);
+      peer.on('open', (id) => {
+        myPlayerId = 1;
+        mode = 'online';
+        document.getElementById('roomCodeDisplay').style.display = 'block';
+        document.getElementById('roomCodeDisplay').innerText = `کد اتاق شما: ${id}`;
+        document.getElementById('peerStatus').innerText = 'منتظر ورود دوست شما به اتاق...';
+      });
+      peer.on('connection', (conn) => {
+        peerConn = conn;
+        setupPeerEvents();
+        document.getElementById('peerStatus').innerText = 'دوست شما متصل شد! بازی شروع می‌شود.';
+        setTimeout(closeOnlineModal, 1200);
+        resetGame();
+      });
+    }
+
+    function joinRoom() {
+      const code = document.getElementById('joinCodeInput').value.trim();
+      if (!code) return alert('کد اتاق را وارد کنید');
+      peer = new Peer();
+      peer.on('open', () => {
+        peerConn = peer.connect(code);
+        myPlayerId = 2;
+        mode = 'online';
+        setupPeerEvents();
+        document.getElementById('peerStatus').innerText = 'در حال اتصال به اتاق...';
+        peerConn.on('open', () => {
+          document.getElementById('peerStatus').innerText = 'متصل شدید! شروع بازی.';
+          setTimeout(closeOnlineModal, 1000);
+          resetGame();
+        });
+      });
+    }
+
+    function setupPeerEvents() {
+      peerConn.on('data', (data) => {
+        if (data.type === 'SHOOT') {
+          triggerShot(data.xRatio, data.yRatio, data.player);
+        }
+      });
+    }
+
+    // Initial draw
+    updateStatus();
+    draw();
+  </script>
+</body>
+</html>

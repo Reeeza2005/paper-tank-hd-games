@@ -1,0 +1,6 @@
+{
+  "name": "جنگ کاغذی - بازی نوستالژی تا کردن کاغذ",
+  "description": "بازی نوستالژیک جنگ کاغذی با کاغذ سفید، سیستم خرید واحدها (سرباز، تانک، هواپیما، قایق)، زمین‌های متنوع (رودخانه، موانع)، فاکتور باد و مولتی‌پلیر PeerJS",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
