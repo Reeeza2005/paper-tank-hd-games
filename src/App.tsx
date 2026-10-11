@@ -23,6 +23,9 @@ import {
   Flame,
   User,
   Edit3,
+  Wrench,
+  Shield,
+  Zap,
 } from 'lucide-react';
 import {
   GameMode,
@@ -40,6 +43,7 @@ import {
   ThemeMode,
   KillcamData,
   PeerMessage,
+  MAX_UPGRADE_LEVELS,
 } from './types';
 import { NotebookBoard } from './components/NotebookBoard';
 import { sounds } from './audio';
@@ -485,6 +489,7 @@ export default function App() {
         isHit: boolean;
         hitUnitId?: string;
         hitUnitType?: UnitType;
+        firingUnitType?: UnitType;
         absorbedByBunkerId?: string;
         unitDestroyed?: boolean;
         bountyEarned: number;
@@ -496,7 +501,13 @@ export default function App() {
       setIsFoldAnimating(true);
       const shooterPlayer = isRemote ? (currentPlayer === 1 ? 1 : 2) : currentPlayer;
       setFoldingPlayer(shooterPlayer);
-      sounds.playPenDot();
+
+      // Dedicated weapon firing sound effect for each unit type
+      const firingType: UnitType =
+        shotData.firingUnitType ||
+        (selectedFiringUnitId ? units.find((u) => u.id === selectedFiringUnitId)?.type : undefined) ||
+        'tank';
+      sounds.playUnitShot(firingType);
       sounds.playFoldSweep();
 
       const damage = shotData.damageDealt || 1;
@@ -566,7 +577,7 @@ export default function App() {
           targetXRatio: shotData.targetXR,
           targetYRatio: shotData.targetYR,
           player: shooterPlayer,
-          firingUnitType: (units.find((u) => u.id === selectedFiringUnitId)?.type || 'tank') as UnitType,
+          firingUnitType: firingType,
           firingUnitId: selectedFiringUnitId || '',
           inkRadius: 10,
           damageDealt: damage,
@@ -585,7 +596,10 @@ export default function App() {
         if (!isRemote && mode === 'online' && peerSessionRef.current) {
           peerSessionRef.current.send({
             type: 'SHOOT',
-            payload: shotData,
+            payload: {
+              ...shotData,
+              firingUnitType: firingType,
+            },
           });
         }
 
@@ -675,6 +689,7 @@ export default function App() {
             sourceYR: aiShot.yRatio,
             targetXR,
             targetYR,
+            firingUnitType: aiShot.firingUnit.type,
             isHit: !!hit,
             hitUnitId: hit?.id,
             hitUnitType: hit?.type,
@@ -847,9 +862,33 @@ export default function App() {
     );
   };
 
-  // Upgrades
+  // Upgrades with strict per-item limits
   const handleApplyUpgrade = (type: 'hp' | 'radius' | 'wind' | 'damage') => {
     if (!upgradingUnit) return;
+
+    const currentDamage = upgradingUnit.upgrades?.damageBoost || 0;
+    const currentHpBonus = upgradingUnit.upgrades?.extraHp || 0;
+    const currentRadius = upgradingUnit.upgrades?.inkRadiusBoost || 0;
+    const hasWind = !!upgradingUnit.upgrades?.windResistance;
+
+    // Enforce strict limits
+    if (type === 'damage' && currentDamage >= MAX_UPGRADE_LEVELS.damage) {
+      showToast(`قدرت تخریب به حداکثر سقف مجاز (${MAX_UPGRADE_LEVELS.damage} بار) رسیده است! 🔒`, '⚠️');
+      return;
+    }
+    if (type === 'hp' && currentHpBonus >= MAX_UPGRADE_LEVELS.hp) {
+      showToast(`زره تقویتی جان به حداکثر سقف مجاز (${MAX_UPGRADE_LEVELS.hp} بار) رسیده است! 🔒`, '⚠️');
+      return;
+    }
+    if (type === 'radius' && currentRadius >= MAX_UPGRADE_LEVELS.radius) {
+      showToast(`شعاع ترکش به حداکثر سقف مجاز (${MAX_UPGRADE_LEVELS.radius} بار) رسیده است! 🔒`, '⚠️');
+      return;
+    }
+    if (type === 'wind' && hasWind) {
+      showToast(`سیستم ناوبری ضد باد قبلاً فعال گردیده است (حداکثر ۱ بار)! 🔒`, '⚠️');
+      return;
+    }
+
     const cost = type === 'hp' ? 120 : type === 'radius' ? 90 : type === 'damage' ? 110 : 100;
     const currentCoins = upgradingUnit.player === 1 ? p1Coins : p2Coins;
 
@@ -866,19 +905,32 @@ export default function App() {
       prev.map((u) => {
         if (u.id === upgradingUnit.id) {
           let updated = { ...u };
-          if (type === 'hp') updated = { ...u, hp: u.hp + 1, maxHp: u.maxHp + 1 };
-          if (type === 'radius')
+          if (type === 'hp') {
+            const nextHpBonus = (u.upgrades?.extraHp || 0) + 1;
             updated = {
               ...u,
-              upgrades: { ...u.upgrades, inkRadiusBoost: u.upgrades.inkRadiusBoost + 1 },
+              hp: u.hp + 1,
+              maxHp: u.maxHp + 1,
+              upgrades: { ...u.upgrades, extraHp: nextHpBonus },
             };
-          if (type === 'damage')
+          }
+          if (type === 'radius') {
+            const nextRadius = (u.upgrades?.inkRadiusBoost || 0) + 1;
             updated = {
               ...u,
-              upgrades: { ...u.upgrades, damageBoost: (u.upgrades.damageBoost || 0) + 1 },
+              upgrades: { ...u.upgrades, inkRadiusBoost: nextRadius },
             };
-          if (type === 'wind')
+          }
+          if (type === 'damage') {
+            const nextDamage = (u.upgrades?.damageBoost || 0) + 1;
+            updated = {
+              ...u,
+              upgrades: { ...u.upgrades, damageBoost: nextDamage },
+            };
+          }
+          if (type === 'wind') {
             updated = { ...u, upgrades: { ...u.upgrades, windResistance: true } };
+          }
           updatedUnit = updated;
           return updated;
         }
@@ -893,9 +945,21 @@ export default function App() {
       });
     }
 
+    if (updatedUnit) {
+      setUpgradingUnit(updatedUnit);
+    }
+
     sounds.playVictory();
-    showToast('ارتقای رزمی با موفقیت اعمال گردید! ⚡', '🛡️');
-    setUpgradingUnit(null);
+    const itemLabel =
+      type === 'damage'
+        ? `قدرت تخریب (سطح ${currentDamage + 1} از ${MAX_UPGRADE_LEVELS.damage})`
+        : type === 'hp'
+        ? `زره تقویتی جان (سطح ${currentHpBonus + 1} از ${MAX_UPGRADE_LEVELS.hp})`
+        : type === 'radius'
+        ? `شعاع ترکش (سطح ${currentRadius + 1} از ${MAX_UPGRADE_LEVELS.radius})`
+        : `سیستم ضد باد (فعال شد)`;
+
+    showToast(`ارتقای ${itemLabel} اعمال شد! ⚡`, '🛡️');
   };
 
   const p1AliveUnits = units.filter((u) => u.player === 1 && !u.isDestroyed);
@@ -946,8 +1010,8 @@ export default function App() {
               HD Warfare
             </span>
           </h1>
-          <p className={`text-xs font-medium ${isDay ? 'text-slate-500' : 'text-slate-400'}`}>
-            میدان نبرد مدرن، امکان ثبت نام بازیکنان قبل از بازی، حذف و تغییر مکان ادوات و شبکه P2P
+          <p className={`text-xs font-semibold ${isDay ? 'text-slate-600' : 'text-slate-300'}`}>
+            میدان نبرد مدرن؛ تقابل استراتژیکی و تجربه‌ها، بازی حرفه‌ای‌ها
           </p>
         </div>
 
@@ -1220,102 +1284,79 @@ export default function App() {
         {isBattle ? (
           isMyTurn ? (
             <div
-              className={`w-full border-2 rounded-2xl px-5 py-3 shadow-lg flex flex-wrap justify-between items-center animate-pulse gap-2 ${
+              className={`w-full border-2 rounded-2xl px-5 py-2.5 shadow-lg flex items-center justify-between gap-3 ${
                 isDay
                   ? 'bg-emerald-50 border-emerald-500 text-slate-900 shadow-emerald-200/50'
-                  : 'bg-gradient-to-r from-cyan-950 via-emerald-950 to-cyan-950 border-emerald-500/80 text-white shadow-[0_0_25px_rgba(16,185,129,0.25)]'
+                  : 'bg-gradient-to-r from-cyan-950/90 via-emerald-950/80 to-cyan-950/90 border-emerald-500/80 text-white shadow-[0_0_20px_rgba(16,185,129,0.2)]'
               }`}
             >
               <div className="flex items-center gap-3">
-                <span className="relative flex h-4 w-4">
+                <span className="relative flex h-3.5 w-3.5">
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-4 w-4 bg-emerald-500"></span>
+                  <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500"></span>
                 </span>
-                <div>
-                  <h2 className="text-base font-black flex items-center gap-2">
-                    <span>نوبت شماست! شلیک کنید ({currentPlayer === 1 ? p1Name : p2Name})</span>
-                    <span className="text-xs bg-emerald-500 text-white font-black px-2 py-0.5 rounded-full">
-                      آماده شلیک 🎯
-                    </span>
-                  </h2>
-                  <p className={`text-xs font-medium ${isDay ? 'text-emerald-800' : 'text-emerald-300'}`}>
-                    واحد شلیک‌کننده را انتخاب کنید و روی نیمه زمین خودتان کلیک کنید تا تیر شلیک شود.
-                  </p>
-                </div>
+                <h2 className="text-base sm:text-lg font-black flex items-center gap-2">
+                  <span>نوبت: {currentPlayer === 1 ? p1Name : p2Name}</span>
+                  <span className="text-sm">{currentPlayer === 1 ? '🔵' : '🔴'}</span>
+                </h2>
               </div>
               <div
-                className={`text-xs font-black px-3 py-1.5 rounded-xl border ${
+                className={`text-xs font-black px-3.5 py-1 rounded-xl border flex items-center gap-1.5 ${
                   isDay
                     ? 'bg-emerald-100 text-emerald-900 border-emerald-300'
-                    : 'bg-emerald-950/80 text-emerald-400 border-emerald-700'
+                    : 'bg-emerald-950/80 text-emerald-300 border-emerald-700'
                 }`}
               >
-                بازیکن فعال: {currentPlayer === 1 ? p1Name : p2Name} {currentPlayer === 1 ? '🔵' : '🔴'}
+                <span>نوبت شما</span>
+                <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
               </div>
             </div>
           ) : (
             <div
-              className={`w-full border-2 rounded-2xl px-5 py-3 shadow-lg flex flex-wrap justify-between items-center gap-2 ${
+              className={`w-full border-2 rounded-2xl px-5 py-2.5 shadow-lg flex items-center justify-between gap-3 ${
                 isDay
                   ? 'bg-rose-50 border-rose-300 text-slate-900'
-                  : 'bg-gradient-to-r from-slate-950 via-rose-950/60 to-slate-950 border-rose-600/60 text-white'
+                  : 'bg-gradient-to-r from-slate-950 via-rose-950/50 to-slate-950 border-rose-600/60 text-white'
               }`}
             >
               <div className="flex items-center gap-3">
-                <Lock className="text-rose-500" size={20} />
-                <div>
-                  <h2 className="text-base font-black text-rose-500 flex items-center gap-2">
-                    <span>نوبت {currentPlayer === 1 ? p1Name : p2Name} است، منتظر بمانید...</span>
-                    <span
-                      className={`text-xs px-2 py-0.5 rounded-full border flex items-center gap-1 font-bold ${
-                        isDay
-                          ? 'bg-rose-100 text-rose-700 border-rose-200'
-                          : 'bg-rose-950 text-rose-400 border-rose-800'
-                      }`}
-                    >
-                      <Clock size={12} /> کنترل شلیک قفل است
-                    </span>
-                  </h2>
-                  <p className={`text-xs font-medium ${isDay ? 'text-slate-600' : 'text-slate-400'}`}>
-                    حریف در حال محاسبه زاویه شلیک است. پس از شلیک، نوبت به شما منتقل می‌گردد.
-                  </p>
-                </div>
+                <Lock className="text-rose-500" size={18} />
+                <h2 className="text-base sm:text-lg font-black text-rose-500 flex items-center gap-2">
+                  <span>نوبت: {currentPlayer === 1 ? p1Name : p2Name}</span>
+                  <span className="text-sm">{currentPlayer === 1 ? '🔵' : '🔴'}</span>
+                </h2>
               </div>
               <div
-                className={`text-xs font-black px-3 py-1.5 rounded-xl border ${
+                className={`text-xs font-black px-3.5 py-1 rounded-xl border flex items-center gap-1.5 ${
                   isDay
                     ? 'bg-rose-100 text-rose-800 border-rose-200'
-                    : 'bg-rose-950/80 text-rose-400 border-rose-800'
+                    : 'bg-rose-950/80 text-rose-300 border-rose-800'
                 }`}
               >
-                در حال اقدام: {currentPlayer === 1 ? p1Name : p2Name} {currentPlayer === 1 ? '🔵' : '🔴'}
+                <Clock size={12} />
+                <span>در انتظار حریف</span>
               </div>
             </div>
           )
         ) : (
           <div
-            className={`w-full rounded-2xl px-5 py-2.5 shadow-md flex flex-wrap justify-between items-center gap-2 text-xs border ${
+            className={`w-full rounded-2xl px-5 py-2.5 shadow-md flex items-center justify-between gap-3 text-xs border ${
               isDay
-                ? 'bg-white border-sky-200 text-slate-700'
-                : 'bg-slate-900/90 border-cyan-800/60 text-slate-300'
+                ? 'bg-white border-sky-200 text-slate-800'
+                : 'bg-slate-900/90 border-cyan-800/60 text-slate-200'
             }`}
           >
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-black text-cyan-500">🚩 چیدمان و ثبت اسامی:</span>
-              <span>
-                {mode === 'online'
-                  ? waitingForOpponentReady
-                    ? 'چیدمان شما ثبت شد! در انتظار تأیید چیدمان حریف... ⏳'
-                    : 'نام خود را در کادر بالا بنویسید، مهره‌ها را مستقر کنید و دکمه تأیید چیدمان را بزنید.'
-                  : mode === 'local'
-                  ? `نام بازیکنان را در کادرهای بالا وارد کرده و نیروها را بچینید (اکنون نوبت: ${currentPlayer === 1 ? p1Name : p2Name} ${currentPlayer === 1 ? '🔵' : '🔴'}).`
-                  : 'نام خود را در کادر بالا وارد کرده، ارتش را مستقر کنید و آماده نبرد را بزنید.'}
+            <div className="flex items-center gap-2.5">
+              <span className="text-sm font-black text-cyan-500">🚩 نوبت چیدمان:</span>
+              <span className="text-sm font-black flex items-center gap-1.5">
+                <span>{currentPlayer === 1 ? p1Name : p2Name}</span>
+                <span>{currentPlayer === 1 ? '🔵' : '🔴'}</span>
               </span>
             </div>
 
             {waitingForOpponentReady && (
               <span className="bg-amber-950 text-amber-300 border border-amber-800 px-3 py-1 rounded-lg font-black animate-pulse flex items-center gap-1.5">
-                <Clock size={14} /> در انتظار حریف...
+                <Clock size={13} /> در انتظار حریف...
               </span>
             )}
           </div>
@@ -1344,6 +1385,14 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => setUpgradingUnit(selectedUnitToModify)}
+              className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-black shadow-md flex items-center gap-1.5 transition"
+            >
+              <Wrench size={14} />
+              <span>ارتقای واحد 🛠️</span>
+            </button>
+
             <button
               onClick={() => handleDeleteUnit(selectedUnitToModify.id)}
               className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-black shadow-md flex items-center gap-1.5 transition"
@@ -1707,15 +1756,34 @@ export default function App() {
                   const isReady = u.cooldownRemaining === 0;
                   const dmgBonus = u.upgrades?.damageBoost || 0;
                   const totalDmg = spec.baseDamage + dmgBonus;
+                  const totalUnitUpgrades =
+                    (u.upgrades?.damageBoost || 0) +
+                    (u.upgrades?.extraHp || 0) +
+                    (u.upgrades?.inkRadiusBoost || 0) +
+                    (u.upgrades?.windResistance ? 1 : 0);
 
                   return (
                     <button
                       key={u.id}
                       disabled={!isReady || !isMyTurn}
-                      onClick={() => setSelectedFiringUnitId(u.id)}
-                      className={`px-3 py-1 rounded-xl text-xs font-black border transition flex items-center gap-1.5 ${
+                      onClick={() => {
+                        if (isSelected) {
+                          setUpgradingUnit(u);
+                        } else {
+                          setSelectedFiringUnitId(u.id);
+                        }
+                      }}
+                      onDoubleClick={() => {
+                        if (isMyTurn) setUpgradingUnit(u);
+                      }}
+                      title={
                         isSelected
-                          ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md ring-1 ring-amber-300'
+                          ? `کلیک مجدد برای باز کردن منوی ارتقای واحد ${spec.name} 🛠️ (سقف محدود برای هر آیتم)`
+                          : `کلیک برای انتخاب جهت شلیک | کلیک مجدد جهت ارتقای رزمی واحد`
+                      }
+                      className={`group px-3 py-1.5 rounded-xl text-xs font-black border transition flex items-center gap-1.5 shadow-sm ${
+                        isSelected
+                          ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md ring-2 ring-amber-300 scale-[1.02]'
                           : isReady && isMyTurn
                           ? isDay
                             ? 'bg-slate-100 text-slate-800 border-slate-300 hover:bg-slate-200'
@@ -1727,15 +1795,66 @@ export default function App() {
                       <span>
                         {spec.name} #{i + 1} ({u.hp}❤️ | قدرت: {totalDmg}💥)
                       </span>
+                      {totalUnitUpgrades > 0 && (
+                        <span
+                          className={`text-[10px] px-1 py-0.2 rounded font-black flex items-center gap-0.5 ${
+                            isSelected
+                              ? 'bg-amber-950 text-amber-200'
+                              : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                          }`}
+                          title={`تعداد ارتقاهای این نیرو: ${totalUnitUpgrades} (محدود به سقف هر آیتم)`}
+                        >
+                          ⭐{totalUnitUpgrades}
+                        </span>
+                      )}
                       {!isReady && (
                         <span className="text-[10px] text-amber-500 bg-amber-950 px-1 py-0.2 rounded">
                           ⏳ استراحت
+                        </span>
+                      )}
+                      {isMyTurn && (
+                        <span
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedFiringUnitId(u.id);
+                            setUpgradingUnit(u);
+                          }}
+                          className={`mr-1 px-1.5 py-0.5 rounded text-[10px] font-black transition cursor-pointer flex items-center gap-0.5 shadow-sm ${
+                            isSelected
+                              ? 'bg-slate-950 hover:bg-slate-900 text-amber-300 border border-amber-400/40'
+                              : 'bg-amber-500/20 hover:bg-amber-500 hover:text-slate-950 text-amber-400 border border-amber-500/30'
+                          }`}
+                          title="ارتقای این نیرو از این بخش با سقف محدود آیتم‌ها"
+                        >
+                          <Wrench size={10} />
+                          ارتقا 🛠️
                         </span>
                       )}
                     </button>
                   );
                 })}
             </div>
+
+            {/* Quick Upgrade Button for Currently Selected Unit */}
+            {selectedFiringUnitId && isMyTurn && (() => {
+              const activeUnit = units.find((u) => u.id === selectedFiringUnitId);
+              if (!activeUnit) return null;
+              const totalActiveUpgrades =
+                (activeUnit.upgrades?.damageBoost || 0) +
+                (activeUnit.upgrades?.extraHp || 0) +
+                (activeUnit.upgrades?.inkRadiusBoost || 0) +
+                (activeUnit.upgrades?.windResistance ? 1 : 0);
+              return (
+                <button
+                  onClick={() => setUpgradingUnit(activeUnit)}
+                  className="px-2.5 py-1 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-400 hover:to-yellow-400 text-slate-950 text-xs font-black shadow-md flex items-center gap-1.5 transition"
+                  title="باز کردن پنجره ارتقای نیرو با سقف محدود برای هر آیتم"
+                >
+                  <Wrench size={13} />
+                  <span>ارتقای {UNIT_SPECS[activeUnit.type].name} ({totalActiveUpgrades} ارتقا)</span>
+                </button>
+              );
+            })()}
           </div>
 
           <div
@@ -1935,96 +2054,269 @@ export default function App() {
         </div>
       )}
 
-      {/* Upgrades Modal (With FIREPOWER / DAMAGE UPGRADE) */}
-      {upgradingUnit && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-900 border border-slate-700 rounded-2xl p-5 max-w-md w-full shadow-2xl">
-            <h3 className="text-base font-black text-white mb-1">
-              🛠️ ارتقای رزمی {UNIT_SPECS[upgradingUnit.type].name} (جان: {upgradingUnit.hp}/
-              {upgradingUnit.maxHp})
-            </h3>
-            <p className="text-xs text-slate-400 mb-4">
-              ارتقای قابلیت‌های این نیرو برای تسلط بر میدان نبرد:
-            </p>
+      {/* Upgrades Modal (With STRICT LIMITS PER ITEM) */}
+      {upgradingUnit && (() => {
+        const spec = UNIT_SPECS[upgradingUnit.type];
+        const currentDamage = upgradingUnit.upgrades?.damageBoost || 0;
+        const currentHpBonus = upgradingUnit.upgrades?.extraHp || 0;
+        const currentRadius = upgradingUnit.upgrades?.inkRadiusBoost || 0;
+        const hasWind = !!upgradingUnit.upgrades?.windResistance;
+        const playerCoins = upgradingUnit.player === 1 ? p1Coins : p2Coins;
+        const totalUnitUpgrades = currentDamage + currentHpBonus + currentRadius + (hasWind ? 1 : 0);
 
-            <div className="flex flex-col gap-2 mb-4">
-              {/* Damage Upgrade */}
-              {UNIT_SPECS[upgradingUnit.type].canShoot && (
-                <div className="p-3 bg-slate-800/80 border border-amber-600/60 rounded-xl flex justify-between items-center">
-                  <div>
-                    <h4 className="text-xs font-black text-amber-400 flex items-center gap-1">
-                      <Flame size={14} /> 💥 افزایش قدرت تخریب (+۱ دمیج)
-                    </h4>
-                    <p className="text-[10px] text-slate-400">
-                      قدرت کنونی: {1 + (upgradingUnit.upgrades?.damageBoost || 0)} آسیب در هر اصابت مستقیم
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => handleApplyUpgrade('damage')}
-                    className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-slate-950 font-black text-xs rounded-lg transition"
-                  >
-                    ۱۱۰ 🪙
-                  </button>
-                </div>
-              )}
+        const isDamageMaxed = currentDamage >= MAX_UPGRADE_LEVELS.damage;
+        const isHpMaxed = currentHpBonus >= MAX_UPGRADE_LEVELS.hp;
+        const isRadiusMaxed = currentRadius >= MAX_UPGRADE_LEVELS.radius;
+        const isWindMaxed = hasWind;
 
-              {/* Extra HP */}
-              <div className="p-3 bg-slate-800/70 border border-slate-700 rounded-xl flex justify-between items-center">
+        return (
+          <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+            <div className="bg-slate-900 border border-amber-500/70 rounded-2xl p-5 max-w-lg w-full shadow-2xl relative text-right">
+              {/* Close X Button */}
+              <button
+                onClick={() => setUpgradingUnit(null)}
+                className="absolute top-4 left-4 p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition"
+                title="بستن پنجره"
+              >
+                <X size={16} />
+              </button>
+
+              {/* Header */}
+              <div className="flex items-center gap-3 mb-3 pr-1">
+                <span className="text-3xl p-2 rounded-xl bg-amber-950/60 border border-amber-600/50 shadow-inner">
+                  {spec.icon}
+                </span>
                 <div>
-                  <h4 className="text-xs font-black text-white">❤️ زره تقویتی (+۱ جان)</h4>
-                  <p className="text-[10px] text-slate-400">مقاومت در برابر یک اصابت مستقیم اضافی</p>
+                  <h3 className="text-base font-black text-white flex items-center gap-2">
+                    <span>ارتقای تجهیزات {spec.name}</span>
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-cyan-950 border border-cyan-600 text-cyan-300 font-bold">
+                      بازیکن {upgradingUnit.player === 1 ? p1Name : p2Name} ({upgradingUnit.player === 1 ? '🔵' : '🔴'})
+                    </span>
+                  </h3>
+                  <div className="flex items-center gap-3 text-xs text-slate-300 mt-1">
+                    <span className="text-emerald-400 font-bold">
+                      جان فعلی: {upgradingUnit.hp} / {upgradingUnit.maxHp} ❤️
+                    </span>
+                    {spec.canShoot && (
+                      <span className="text-rose-400 font-bold">
+                        قدرت تخریب: {spec.baseDamage + currentDamage} 💥
+                      </span>
+                    )}
+                    <span className="text-amber-400 font-black">
+                      موجودی شما: {playerCoins} 🪙
+                    </span>
+                  </div>
                 </div>
-                <button
-                  onClick={() => handleApplyUpgrade('hp')}
-                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-black rounded-lg transition"
-                >
-                  ۱۲۰ 🪙
-                </button>
               </div>
 
-              {/* Ink Radius Boost */}
-              {UNIT_SPECS[upgradingUnit.type].canShoot && (
-                <div className="p-3 bg-slate-800/70 border border-slate-700 rounded-xl flex justify-between items-center">
-                  <div>
-                    <h4 className="text-xs font-black text-white">⚡ افزایش شعاع ترکش (+۲.۵px)</h4>
-                    <p className="text-[10px] text-slate-400">گسترش محدوده انفجار هنگام برخورد</p>
-                  </div>
-                  <button
-                    onClick={() => handleApplyUpgrade('radius')}
-                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-black rounded-lg transition"
-                  >
-                    ۹۰ 🪙
-                  </button>
-                </div>
-              )}
+              {/* Limit Notice Box */}
+              <div className="bg-amber-950/40 border border-amber-600/50 rounded-xl p-2.5 mb-3 text-[11px] font-bold text-amber-200 flex items-center justify-between gap-2">
+                <span className="flex items-center gap-1.5">
+                  <Shield size={14} className="text-amber-400 shrink-0" />
+                  <span>تعداد ارتقای هر آیتم دارای سقف محدود و مشخصی است (حداکثر سقف مجاز برای هر ویژگی):</span>
+                </span>
+                <span className="bg-amber-900/80 px-2 py-0.5 rounded text-[10px] text-amber-300 font-black shrink-0">
+                  {totalUnitUpgrades} از ۷ ارتقا
+                </span>
+              </div>
 
-              {/* Wind Resistance */}
-              {UNIT_SPECS[upgradingUnit.type].canShoot && (
-                <div className="p-3 bg-slate-800/70 border border-slate-700 rounded-xl flex justify-between items-center">
-                  <div>
-                    <h4 className="text-xs font-black text-white">💨 سیستم ناوبری پایدار (باد)</h4>
-                    <p className="text-[10px] text-slate-400">کاهش ۵۰ درصدی انحراف شلیک در اثر باد</p>
+              {/* Upgrades Items List */}
+              <div className="flex flex-col gap-2.5 mb-4 max-h-[60vh] overflow-y-auto pl-1">
+                {/* 1. Damage Upgrade */}
+                {spec.canShoot && (
+                  <div className={`p-3 rounded-xl border transition flex justify-between items-center ${
+                    isDamageMaxed
+                      ? 'bg-slate-900/60 border-slate-700/60 opacity-80'
+                      : 'bg-slate-800/80 border-amber-600/60 shadow-sm'
+                  }`}>
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <h4 className="text-xs font-black text-amber-400 flex items-center gap-1">
+                          <Flame size={14} className="text-rose-400" />
+                          <span>💥 قدرت تخریب گلوله (+۱ دمیج)</span>
+                        </h4>
+                        <span className={`text-[10px] px-1.5 py-0.2 rounded font-black border ${
+                          isDamageMaxed
+                            ? 'bg-emerald-950 border-emerald-600 text-emerald-300'
+                            : 'bg-slate-950 border-slate-700 text-slate-300'
+                        }`}>
+                          {isDamageMaxed
+                            ? `●● سقف تکمیل شد (${currentDamage}/${MAX_UPGRADE_LEVELS.damage})`
+                            : currentDamage === 1
+                            ? `●○ سطح ۱ از ${MAX_UPGRADE_LEVELS.damage}`
+                            : `○○ سطح ۰ از ${MAX_UPGRADE_LEVELS.damage}`}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-400">
+                        قدرت تخریب فعلی: <span className="text-white font-bold">{spec.baseDamage + currentDamage}</span> • سقف ارتقا: حداکثر {MAX_UPGRADE_LEVELS.damage} بار
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={() => handleApplyUpgrade('damage')}
+                      disabled={isDamageMaxed || playerCoins < 110}
+                      className={`px-3 py-1.5 text-xs font-black rounded-lg transition shrink-0 ${
+                        isDamageMaxed
+                          ? 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed'
+                          : playerCoins < 110
+                          ? 'bg-amber-950/60 text-amber-500 border border-amber-800 opacity-60 cursor-not-allowed'
+                          : 'bg-amber-500 hover:bg-amber-400 text-slate-950 shadow-md shadow-amber-500/20 active:scale-95'
+                      }`}
+                    >
+                      {isDamageMaxed ? 'تکمیل شد (۲/۲) 🔒' : '۱۱۰ 🪙 (ارتقا)'}
+                    </button>
                   </div>
+                )}
+
+                {/* 2. Extra HP Upgrade */}
+                <div className={`p-3 rounded-xl border transition flex justify-between items-center ${
+                  isHpMaxed
+                    ? 'bg-slate-900/60 border-slate-700/60 opacity-80'
+                    : 'bg-slate-800/80 border-blue-500/60 shadow-sm'
+                }`}>
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <h4 className="text-xs font-black text-sky-400 flex items-center gap-1">
+                        <Shield size={14} className="text-sky-400" />
+                        <span>❤️ زره تقویتی بدنه (+۱ جان)</span>
+                      </h4>
+                      <span className={`text-[10px] px-1.5 py-0.2 rounded font-black border ${
+                        isHpMaxed
+                          ? 'bg-emerald-950 border-emerald-600 text-emerald-300'
+                          : 'bg-slate-950 border-slate-700 text-slate-300'
+                      }`}>
+                        {isHpMaxed
+                          ? `●● سقف تکمیل شد (${currentHpBonus}/${MAX_UPGRADE_LEVELS.hp})`
+                          : currentHpBonus === 1
+                          ? `●○ سطح ۱ از ${MAX_UPGRADE_LEVELS.hp}`
+                          : `○○ سطح ۰ از ${MAX_UPGRADE_LEVELS.hp}`}
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-slate-400">
+                      جان فعلی: <span className="text-white font-bold">{upgradingUnit.hp}/{upgradingUnit.maxHp}</span> • سقف ارتقا: حداکثر {MAX_UPGRADE_LEVELS.hp} بار
+                    </p>
+                  </div>
+
                   <button
-                    onClick={() => handleApplyUpgrade('wind')}
-                    disabled={upgradingUnit.upgrades?.windResistance}
-                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 text-white text-xs font-black rounded-lg transition"
+                    onClick={() => handleApplyUpgrade('hp')}
+                    disabled={isHpMaxed || playerCoins < 120}
+                    className={`px-3 py-1.5 text-xs font-black rounded-lg transition shrink-0 ${
+                      isHpMaxed
+                        ? 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed'
+                        : playerCoins < 120
+                        ? 'bg-sky-950/60 text-sky-500 border border-sky-800 opacity-60 cursor-not-allowed'
+                        : 'bg-sky-500 hover:bg-sky-400 text-slate-950 shadow-md shadow-sky-500/20 active:scale-95'
+                    }`}
                   >
-                    {upgradingUnit.upgrades?.windResistance ? 'فعال است' : '۱۰۰ 🪙'}
+                    {isHpMaxed ? 'تکمیل شد (۲/۲) 🔒' : '۱۲۰ 🪙 (ارتقا)'}
                   </button>
                 </div>
-              )}
+
+                {/* 3. Ink Radius Boost */}
+                {spec.canShoot && (
+                  <div className={`p-3 rounded-xl border transition flex justify-between items-center ${
+                    isRadiusMaxed
+                      ? 'bg-slate-900/60 border-slate-700/60 opacity-80'
+                      : 'bg-slate-800/80 border-purple-500/60 shadow-sm'
+                  }`}>
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <h4 className="text-xs font-black text-purple-300 flex items-center gap-1">
+                          <Zap size={14} className="text-purple-400" />
+                          <span>⚡ شعاع ترکش جوهر (+۲.۵px)</span>
+                        </h4>
+                        <span className={`text-[10px] px-1.5 py-0.2 rounded font-black border ${
+                          isRadiusMaxed
+                            ? 'bg-emerald-950 border-emerald-600 text-emerald-300'
+                            : 'bg-slate-950 border-slate-700 text-slate-300'
+                        }`}>
+                          {isRadiusMaxed
+                            ? `●● سقف تکمیل شد (${currentRadius}/${MAX_UPGRADE_LEVELS.radius})`
+                            : currentRadius === 1
+                            ? `●○ سطح ۱ از ${MAX_UPGRADE_LEVELS.radius}`
+                            : `○○ سطح ۰ از ${MAX_UPGRADE_LEVELS.radius}`}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-400">
+                        محدوده اصابت گسترده‌تر • سقف ارتقا: حداکثر {MAX_UPGRADE_LEVELS.radius} بار
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={() => handleApplyUpgrade('radius')}
+                      disabled={isRadiusMaxed || playerCoins < 90}
+                      className={`px-3 py-1.5 text-xs font-black rounded-lg transition shrink-0 ${
+                        isRadiusMaxed
+                          ? 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed'
+                          : playerCoins < 90
+                          ? 'bg-purple-950/60 text-purple-400 border border-purple-800 opacity-60 cursor-not-allowed'
+                          : 'bg-purple-500 hover:bg-purple-400 text-slate-950 shadow-md shadow-purple-500/20 active:scale-95'
+                      }`}
+                    >
+                      {isRadiusMaxed ? 'تکمیل شد (۲/۲) 🔒' : '۹۰ 🪙 (ارتقا)'}
+                    </button>
+                  </div>
+                )}
+
+                {/* 4. Wind Resistance */}
+                {spec.canShoot && (
+                  <div className={`p-3 rounded-xl border transition flex justify-between items-center ${
+                    isWindMaxed
+                      ? 'bg-slate-900/60 border-slate-700/60 opacity-80'
+                      : 'bg-slate-800/80 border-teal-500/60 shadow-sm'
+                  }`}>
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <h4 className="text-xs font-black text-teal-300 flex items-center gap-1">
+                          <WindIcon size={14} className="text-teal-400" />
+                          <span>💨 سیستم ناوبری پایدار در باد</span>
+                        </h4>
+                        <span className={`text-[10px] px-1.5 py-0.2 rounded font-black border ${
+                          isWindMaxed
+                            ? 'bg-emerald-950 border-emerald-600 text-emerald-300'
+                            : 'bg-slate-950 border-slate-700 text-slate-300'
+                        }`}>
+                          {isWindMaxed ? '● فعال شد (۱/۱)' : '○ غیرفعال (۰/۱)'}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-400">
+                        کاهش ۵۰ درصدی انحراف باد • سقف ارتقا: حداکثر {MAX_UPGRADE_LEVELS.wind} بار
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={() => handleApplyUpgrade('wind')}
+                      disabled={isWindMaxed || playerCoins < 100}
+                      className={`px-3 py-1.5 text-xs font-black rounded-lg transition shrink-0 ${
+                        isWindMaxed
+                          ? 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed'
+                          : playerCoins < 100
+                          ? 'bg-teal-950/60 text-teal-400 border border-teal-800 opacity-60 cursor-not-allowed'
+                          : 'bg-teal-500 hover:bg-teal-400 text-slate-950 shadow-md shadow-teal-500/20 active:scale-95'
+                      }`}
+                    >
+                      {isWindMaxed ? 'فعال شد (۱/۱) 🔒' : '۱۰۰ 🪙 (فعال‌سازی)'}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Bottom Actions */}
+              <div className="flex items-center justify-between gap-3 pt-2 border-t border-slate-800">
+                <span className="text-[11px] font-bold text-slate-400">
+                  سکه باقیمانده: <span className="text-amber-400 font-black">{playerCoins} 🪙</span>
+                </span>
+                <button
+                  onClick={() => setUpgradingUnit(null)}
+                  className="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-black rounded-xl transition"
+                >
+                  بستن پنجره
+                </button>
+              </div>
             </div>
-
-            <button
-              onClick={() => setUpgradingUnit(null)}
-              className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-black rounded-xl transition"
-            >
-              بستن پنجره
-            </button>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Online PeerJS Modal */}
       {isOnlineModalOpen && (

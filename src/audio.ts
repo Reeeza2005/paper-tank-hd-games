@@ -1,4 +1,6 @@
-// Synthesized Web Audio API sound effects for Paper Tank
+import { UnitType } from './types';
+
+// Synthesized Web Audio API sound effects for Paper Tank HD
 class SoundManager {
   private ctx: AudioContext | null = null;
   private isMuted: boolean = false;
@@ -38,6 +40,228 @@ class SoundManager {
 
   public playHitExplosion() {
     this.playHit();
+  }
+
+  // 1. SOLDIER (SNIPER RIFLE): Sharp military firearm crack
+  public playSoldierShot() {
+    if (this.isMuted) return;
+    this.initCtx();
+    if (!this.ctx) return;
+
+    const t = this.ctx.currentTime;
+
+    // Sharp supersonic bullet crack
+    const osc = this.ctx.createOscillator();
+    const oscGain = this.ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(950, t);
+    osc.frequency.exponentialRampToValueAtTime(110, t + 0.08);
+
+    oscGain.gain.setValueAtTime(0.35, t);
+    oscGain.gain.exponentialRampToValueAtTime(0.001, t + 0.09);
+
+    osc.connect(oscGain);
+    oscGain.connect(this.ctx.destination);
+    osc.start(t);
+    osc.stop(t + 0.09);
+
+    // Highpass noise for crisp muzzle snap
+    const bufferSize = Math.floor(this.ctx.sampleRate * 0.12);
+    const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+    const output = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      output[i] = (Math.random() * 2 - 1) * Math.exp(-i / (this.ctx.sampleRate * 0.025));
+    }
+
+    const whiteNoise = this.ctx.createBufferSource();
+    whiteNoise.buffer = noiseBuffer;
+
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'highpass';
+    filter.frequency.setValueAtTime(2400, t);
+
+    const noiseGain = this.ctx.createGain();
+    noiseGain.gain.setValueAtTime(0.4, t);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, t + 0.11);
+
+    whiteNoise.connect(filter);
+    filter.connect(noiseGain);
+    noiseGain.connect(this.ctx.destination);
+
+    whiteNoise.start(t);
+    whiteNoise.stop(t + 0.12);
+  }
+
+  // 2. TANK: Heavy artillery cannon blast with deep bass and mechanical recoil
+  public playTankShot() {
+    if (this.isMuted) return;
+    this.initCtx();
+    if (!this.ctx) return;
+
+    const t = this.ctx.currentTime;
+
+    // Heavy low-frequency sub explosion punch
+    const subOsc = this.ctx.createOscillator();
+    const subGain = this.ctx.createGain();
+    subOsc.type = 'sawtooth';
+    subOsc.frequency.setValueAtTime(180, t);
+    subOsc.frequency.exponentialRampToValueAtTime(28, t + 0.38);
+
+    subGain.gain.setValueAtTime(0.6, t);
+    subGain.gain.exponentialRampToValueAtTime(0.001, t + 0.42);
+
+    subOsc.connect(subGain);
+    subGain.connect(this.ctx.destination);
+    subOsc.start(t);
+    subOsc.stop(t + 0.42);
+
+    // Dense powder explosion roar (lowpass filtered noise)
+    const bufferSize = Math.floor(this.ctx.sampleRate * 0.35);
+    const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+    const output = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      output[i] = Math.random() * 2 - 1;
+    }
+
+    const noiseSrc = this.ctx.createBufferSource();
+    noiseSrc.buffer = noiseBuffer;
+
+    const lpFilter = this.ctx.createBiquadFilter();
+    lpFilter.type = 'lowpass';
+    lpFilter.frequency.setValueAtTime(450, t);
+    lpFilter.frequency.exponentialRampToValueAtTime(90, t + 0.32);
+
+    const noiseGain = this.ctx.createGain();
+    noiseGain.gain.setValueAtTime(0.55, t);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+
+    noiseSrc.connect(lpFilter);
+    lpFilter.connect(noiseGain);
+    noiseGain.connect(this.ctx.destination);
+
+    noiseSrc.start(t);
+    noiseSrc.stop(t + 0.35);
+  }
+
+  // 3. PLANE: Fighter jet dive whistle and aerial bomb / rocket release
+  public playPlaneShot() {
+    if (this.isMuted) return;
+    this.initCtx();
+    if (!this.ctx) return;
+
+    const t = this.ctx.currentTime;
+
+    // High diving whistle (aerial bomb descent)
+    const whistleOsc = this.ctx.createOscillator();
+    const whistleGain = this.ctx.createGain();
+    whistleOsc.type = 'sine';
+    whistleOsc.frequency.setValueAtTime(1550, t);
+    whistleOsc.frequency.exponentialRampToValueAtTime(320, t + 0.3);
+
+    whistleGain.gain.setValueAtTime(0.3, t);
+    whistleGain.gain.exponentialRampToValueAtTime(0.001, t + 0.32);
+
+    whistleOsc.connect(whistleGain);
+    whistleGain.connect(this.ctx.destination);
+    whistleOsc.start(t);
+    whistleOsc.stop(t + 0.32);
+
+    // Jet turbine strafe whoosh (resonant bandpass noise sweep)
+    const bufferSize = Math.floor(this.ctx.sampleRate * 0.28);
+    const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+    const output = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      output[i] = Math.random() * 2 - 1;
+    }
+
+    const noiseSrc = this.ctx.createBufferSource();
+    noiseSrc.buffer = noiseBuffer;
+
+    const bpFilter = this.ctx.createBiquadFilter();
+    bpFilter.type = 'bandpass';
+    bpFilter.Q.value = 4.0;
+    bpFilter.frequency.setValueAtTime(1800, t);
+    bpFilter.frequency.exponentialRampToValueAtTime(550, t + 0.26);
+
+    const noiseGain = this.ctx.createGain();
+    noiseGain.gain.setValueAtTime(0.4, t);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, t + 0.28);
+
+    noiseSrc.connect(bpFilter);
+    bpFilter.connect(noiseGain);
+    noiseGain.connect(this.ctx.destination);
+
+    noiseSrc.start(t);
+    noiseSrc.stop(t + 0.28);
+  }
+
+  // 4. BOAT: Naval patrol boat rocket salvo / missile booster launch
+  public playBoatShot() {
+    if (this.isMuted) return;
+    this.initCtx();
+    if (!this.ctx) return;
+
+    const t = this.ctx.currentTime;
+
+    // Rocket thruster rising tone
+    const rocketOsc = this.ctx.createOscillator();
+    const rocketGain = this.ctx.createGain();
+    rocketOsc.type = 'sawtooth';
+    rocketOsc.frequency.setValueAtTime(260, t);
+    rocketOsc.frequency.linearRampToValueAtTime(740, t + 0.18);
+    rocketOsc.frequency.exponentialRampToValueAtTime(320, t + 0.35);
+
+    rocketGain.gain.setValueAtTime(0.25, t);
+    rocketGain.gain.exponentialRampToValueAtTime(0.001, t + 0.36);
+
+    rocketOsc.connect(rocketGain);
+    rocketGain.connect(this.ctx.destination);
+    rocketOsc.start(t);
+    rocketOsc.stop(t + 0.36);
+
+    // Pressurized rocket ignition hiss & spray
+    const bufferSize = Math.floor(this.ctx.sampleRate * 0.36);
+    const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+    const output = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      output[i] = Math.random() * 2 - 1;
+    }
+
+    const noiseSrc = this.ctx.createBufferSource();
+    noiseSrc.buffer = noiseBuffer;
+
+    const bpFilter = this.ctx.createBiquadFilter();
+    bpFilter.type = 'bandpass';
+    bpFilter.Q.value = 2.5;
+    bpFilter.frequency.setValueAtTime(500, t);
+    bpFilter.frequency.linearRampToValueAtTime(1400, t + 0.15);
+    bpFilter.frequency.exponentialRampToValueAtTime(400, t + 0.34);
+
+    const noiseGain = this.ctx.createGain();
+    noiseGain.gain.setValueAtTime(0.45, t);
+    noiseGain.gain.exponentialRampToValueAtTime(0.001, t + 0.36);
+
+    noiseSrc.connect(bpFilter);
+    bpFilter.connect(noiseGain);
+    noiseGain.connect(this.ctx.destination);
+
+    noiseSrc.start(t);
+    noiseSrc.stop(t + 0.36);
+  }
+
+  // Master weapon shot sound dispatcher
+  public playUnitShot(unitType?: UnitType) {
+    if (unitType === 'soldier') {
+      this.playSoldierShot();
+    } else if (unitType === 'tank') {
+      this.playTankShot();
+    } else if (unitType === 'plane') {
+      this.playPlaneShot();
+    } else if (unitType === 'boat') {
+      this.playBoatShot();
+    } else {
+      this.playTankShot();
+    }
   }
 
   // Sound of ballpoint pen pressing on paper

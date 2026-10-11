@@ -47,6 +47,7 @@ interface NotebookBoardProps {
     sourceYR: number;
     targetXR: number;
     targetYR: number;
+    firingUnitType?: UnitType;
     isHit: boolean;
     hitUnitId?: string;
     hitUnitType?: UnitType;
@@ -615,12 +616,10 @@ export const NotebookBoard: React.FC<NotebookBoardProps> = ({
 
         if (absorbedByBunker) {
           // Damage absorbed by bunker
-          sounds.playShieldAbsorb();
           const bunkerDamage = attackerDamage;
           const remainingBunkerHp = absorbedByBunker.hp - bunkerDamage;
           if (remainingBunkerHp <= 0) {
             bountyEarned = UNIT_SPECS.bunker.bounty;
-            sounds.playHitExplosion();
           }
         } else {
           // Direct hit on target
@@ -628,7 +627,6 @@ export const NotebookBoard: React.FC<NotebookBoardProps> = ({
           if (remainingHp <= 0) {
             unitDestroyed = true;
             bountyEarned = UNIT_SPECS[hitEnemyUnit.type].bounty;
-            sounds.playHitExplosion();
 
             killcam = {
               attackerPlayer: currentPlayer,
@@ -639,12 +637,8 @@ export const NotebookBoard: React.FC<NotebookBoardProps> = ({
               bounty: bountyEarned,
               timestamp: Date.now(),
             };
-          } else {
-            sounds.playHit();
           }
         }
-      } else {
-        sounds.playMiss();
       }
 
       onShoot({
@@ -652,6 +646,7 @@ export const NotebookBoard: React.FC<NotebookBoardProps> = ({
         sourceYR: yr,
         targetXR: finalImpactX / canvas.width,
         targetYR: finalImpactY / canvas.height,
+        firingUnitType: firingUnit.type,
         isHit,
         hitUnitId: hitEnemyUnit?.id,
         hitUnitType: hitEnemyUnit?.type,

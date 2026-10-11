@@ -148,6 +148,13 @@ export function validateCombatTarget(
   return { allowed: true };
 }
 
+export const MAX_UPGRADE_LEVELS = {
+  damage: 2, // حداکثر ۲ بار افزایش قدرت تخریب (+۱ دمیج در هر سطح)
+  hp: 2, // حداکثر ۲ بار افزایش جان (+۱ جان در هر سطح)
+  radius: 2, // حداکثر ۲ بار افزایش شعاع ترکش (+۲.۵ پیکسل در هر سطح)
+  wind: 1, // حداکثر ۱ بار فعال‌سازی سیستم ضد باد
+} as const;
+
 export interface UnitUpgrades {
   extraHp: number; // Level 0-2 (+1 HP per level)
   inkRadiusBoost: number; // Level 0-2 (+2.5px radius per level)
